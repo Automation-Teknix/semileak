@@ -1,0 +1,851 @@
+{% extends "base.html" %}
+{% load static %}
+
+{% block styles %}
+
+    
+        <style>
+            /* Global Styles */
+            body {
+                font-family: Arial, sans-serif;
+            }
+
+            /* Navbar and Footer */
+            .custom-navbar,
+            .footer {
+        background-color: #062A63;
+        color: #ecf0f1;
+        text-align: center;
+        padding: 10px 0;
+        position: fixed;  /* Fixed at the bottom */
+        bottom: 0;        /* Stick to bottom */
+        width: 100%;      /* Full width */
+        z-index: 1000;    /* Ensure it stays above other content */
+}
+
+    .footer:hover {
+        background-color: #08447A;
+        transition: background-color 0.3s;
+    }
+
+    .footer p {
+        margin: 0;
+        font-size: 14px;
+    }
+
+/* Ensure body has enough padding to prevent overlap */
+body {
+    padding-bottom: 40px; /* Adjust if needed to avoid content overlapping with footer */
+}
+
+            /* Form Container */
+            .report-form {
+                display: flex;
+                flex-wrap: wrap;
+                justify-content: space-between;
+                align-items: center;
+                margin: 20px;
+                padding: 30px;
+                border: 1px solid #ccc;
+                background-color: #f5f5f5;
+                border-radius: 10px;
+            }
+
+            /* Form Fields */
+            .form-group {
+                flex: 1;
+                margin: 0 10px;
+                min-width: 150px;
+            }
+
+            .form-group label {
+                font-weight: bold;
+                margin-bottom: 5px;
+                display: block;
+            }
+
+            .form-group select,
+            .form-group input[type="date"] {
+                width: 100%;
+                padding: 8px;
+                border: 1px solid #ccc;
+                border-radius: 4px;
+            }
+
+            /* Specific Field Adjustments */
+            #status-group {
+                flex: 0.5;
+                max-width: 100px;
+            }
+
+            #model-group {
+                flex: 2;
+                max-width: 400px;
+            }
+
+            /* Button Group */
+            .button-group {
+                display: flex;
+                justify-content: flex-start;
+                gap: 10px;
+                margin-top: 20px;
+                width: 100%;
+            }
+
+            /* Button Styles */
+            .btn,
+            .report-button,
+            .excel-button,
+            .pdf-button {
+                background-color: #062A63;
+                color: white;
+                border: none;
+                padding: 12px 20px;
+                font-size: 16px;
+                cursor: pointer;
+                border-radius: 4px;
+                transition: background-color 0.3s ease;
+            }
+
+            .btn:hover,
+            .report-button:hover,
+            .excel-button:hover,
+            .pdf-button:hover {
+                background-color: #045191;
+            }
+
+            /* Report Container */
+            .report-container {
+                display: flex;
+                justify-content: center;
+                gap: 20px;
+                padding: 20px;
+                max-width: 1200px;
+                margin: 0 auto;
+                background-color: #f9f9f9;
+                border: 1px solid #ddd;
+                border-radius: 8px;
+                box-shadow: 0 4px 8px rgba(0, 0, 0, 0.1);
+            }
+
+            /* Table Styles */
+            .data-table {
+                width: 100%;
+                margin: 20px auto;
+                border-collapse: collapse;
+                box-shadow: 0px 4px 8px rgba(0, 0, 0, 0.1);
+            }
+
+            .data-table thead th {
+                background-color: #212529;
+                color: white;
+                padding: 12px;
+                text-align: center;
+                position: sticky;
+                top: 0;
+                z-index: 2;
+            }
+
+            .data-table tbody td {
+                padding: 10px;
+                border: 1px solid #ddd;
+                text-align: center;
+                font-size: 14px;
+                color: #333;
+            }
+
+            /* Alternate Row Coloring */
+            .data-table tbody tr:nth-child(even) {
+                background-color: #f9f9f9;
+            }
+
+            .data-table tbody tr:nth-child(odd) {
+                background-color: #ffffff;
+            }
+
+            .data-table tbody tr:hover {
+                background-color: #e0f7fa;
+            }
+
+            /* Scrollable Table Container */
+            #resultsContainer {
+                max-height: 400px;
+                overflow: auto;
+                border: 1px solid #ccc;
+                background-color: #fff;
+                border-radius: 10px;
+                padding: 10px;
+                box-shadow: 0px 4px 8px rgba(0, 0, 0, 0.2);
+                width: 97.4%;
+                margin-left: 20px;
+            }
+
+            /* Pie Chart Section */
+            .pie-chart-container {
+                flex: 1;
+                display: flex;
+                flex-direction: column;
+                align-items: center;
+                text-align: center;
+                padding: 10px;
+            }
+
+            .pie-chart-container img {
+                width: 300px;
+                margin-bottom: 10px;
+            }
+
+            /* Totals Info */
+            .totals-info {
+                font-size: 14px;
+                font-weight: 600;
+                color: #333;
+                text-align: center;
+                margin-top: 10px;
+            }
+
+            /* Legend */
+            .legend {
+                display: flex;
+                justify-content: space-between;
+                align-items: center;
+                margin-top: 20px;
+            }
+
+            .legend-item {
+                display: flex;
+                align-items: center;
+                gap: 8px;
+                font-size: 14px;
+                font-weight: 500;
+            }
+
+            .legend-color {
+                width: 20px;
+                height: 20px;
+                border-radius: 4px;
+            }
+
+            .ok-color {
+                background-color: #88EA16;
+            }
+
+            .nok-color {
+                background-color: #FF0000;
+            }
+
+            /* Scan QR Code Button */
+            .scan-btn {
+                background-color: #003366;
+                color: white;
+                border: none;
+                padding: 10px 20px;
+                font-size: 16px;
+                border-radius: 5px;
+                transition: background-color 0.3s ease;
+            }
+
+            .scan-btn:hover {
+                background-color: #005b99;
+            }
+
+            .scan-btn:focus {
+                outline: none;
+                box-shadow: 0 0 0 3px rgba(0, 91, 153, 0.5);
+            }
+
+            /* Modal Styles */
+            .modal {
+                display: none;
+                position: fixed;
+                z-index: 1;
+                left: 0;
+                top: 0;
+                width: 100%;
+                height: 100%;
+                background-color: rgba(0, 0, 0, 0.4);
+                padding-top: 60px;
+            }
+
+            .modal-content {
+                background-color: #fefefe;
+                margin: 5% auto;
+                padding: 20px;
+                border: 1px solid #888;
+                max-width: 400px;
+                text-align: center;
+            }
+
+            .modal-content img {
+                width: 350px;
+                height: 65px;
+            }
+
+            .close {
+                color: #aaa;
+                float: right;
+                font-size: 28px;
+                font-weight: bold;
+            }
+
+            .close:hover,
+            .close:focus {
+                color: black;
+                text-decoration: none;
+            }
+
+            /* Responsive Design */
+            @media screen and (max-width: 768px) {
+                .form-group {
+                    flex: 100%;
+                    margin: 10px 0;
+                }
+
+                .data-table {
+                    font-size: 12px;
+                }
+
+                .data-table tbody td {
+                    padding: 8px;
+                }
+
+                .data-table thead th {
+                    padding: 10px;
+                }
+            }
+            /* General button styling */
+.button-group button {
+    background-color: #212529; /* Set button background color */
+    color: white; /* Set text color to white for contrast */
+    border: 1px solid #212529; /* Optional: gives the button a border with the same color */
+    padding: 10px 20px; /* Adjust padding for button size */
+    font-size: 14px; /* Set font size */
+    cursor: pointer; /* Change cursor to pointer on hover */
+    border-radius: 5px; /* Optional: rounded corners */
+    transition: background-color 0.3s ease; /* Smooth transition for hover effect */
+}
+
+/* Hover effect */
+.button-group button:hover {
+    background-color: #1d2124; /* Slightly darker shade for hover effect */
+}
+
+/* Specific styling for each button */
+.report-button {
+    background-color: #212529; /* Button color */
+}
+
+.excel-button {
+    background-color: #212529; /* Button color */
+}
+
+.pdf-button {
+    background-color: #212529; /* Button color */
+}
+
+/* Reduce the table width */
+.data-table {
+    width: 80%; /* Adjust the width as needed */
+    margin: 0 auto; /* Center the table */
+    border-collapse: collapse; /* Remove spacing between table cells */
+}
+
+/* Reduce the font size in the table */
+.data-table th, .data-table td {
+    font-size: 12px; /* Adjust the font size to be smaller */
+    padding: 8px 10px; /* Adjust padding for cells to reduce space */
+}
+
+
+
+
+/* Styling for the data-table */
+.data-table {
+    width: 95%; /* Increase width to 95% of its container */
+    margin: 20px auto; /* Center the table */
+    border-collapse: collapse; /* Remove space between table cells */
+    font-size: 13px; /* Slightly increase font size */
+}
+
+/* Styling for table headers */
+.data-table th {
+    background-color: #f4f4f4; /* Light background for headers */
+    padding: 10px 15px; /* Increase padding in header cells */
+    text-align: left; /* Align text to the left */
+}
+
+/* Styling for table data */
+.data-table td {
+    padding: 8px 12px; /* Increase padding in data cells */
+    border: 1px solid #ddd; /* Add light border for data cells */
+}
+
+/* Add alternate row colors for better readability */
+.data-table tr:nth-child(even) {
+    background-color: #f9f9f9; /* Light gray for even rows */
+}
+
+.data-table tr:hover {
+    background-color: #f1f1f1; /* Highlight on hover */
+}
+
+/* Responsive design for smaller screens */
+@media (max-width: 768px) {
+    .data-table {
+        width: 100%; /* Make the table width 100% on smaller screens */
+        font-size: 11px; /* Slightly smaller font on smaller screens */
+    }
+}
+
+
+        </style>
+        {% endblock %}
+{% block content%}
+        <!-- Modal for viewing images -->
+        <div id="imageModal" class="modal">
+            <span class="close" onclick="closeModal()">&times;</span>
+            <img class="modal-content" id="modalImage" alt="Image">
+            <div id="caption"></div>
+        </div>
+        <form class="report-form" id="filterForm" method="GET">
+
+            <div class="form-group">
+                <label for="date">Date</label>
+                <input type="date" id="date" name="date" class="form-control" 
+                       onfocus="this.form.month.disabled=true; this.form.year.disabled=true;"
+                       onblur="if(!this.value) { this.form.month.disabled=false; this.form.year.disabled=false; }">
+            </div>
+            
+            <div class="form-group">
+                <label for="month"><b>Month</b></label>
+                <select id="month" name="month" class="form-control" 
+                        onfocus="this.form.date.disabled=true;" 
+                        onblur="if(!this.value && !this.form.year.value) { this.form.date.disabled=false; }">
+                    <option value="">Select Month</option>
+                    <option value="1">January</option>
+                    <option value="2">February</option>
+                    <option value="3">March</option>
+                    <option value="4">April</option>
+                    <option value="5">May</option>
+                    <option value="6">June</option>
+                    <option value="7">July</option>
+                    <option value="8">August</option>
+                    <option value="9">September</option>
+                    <option value="10">October</option>
+                    <option value="11">November</option>
+                    <option value="12">December</option>
+                </select>
+            </div>
+            
+            <div class="form-group">
+                <label for="year"><b>Year</b></label>
+                <select id="year" name="year" class="form-control" 
+                        onfocus="this.form.date.disabled=true;" 
+                        onblur="if(!this.value && !this.form.month.value) { this.form.date.disabled=false; }">
+                    <option value="">Select Year</option>
+                    {% for yr in years %}
+                    <option value="{{ yr }}">{{ yr }}</option>
+                    {% endfor %}
+                </select>
+            </div>            
+            
+            <div class="form-group" id="part-group">
+                <label for="part_number">Part Number</label>
+                <select id="part_number" name="part_number">
+                    <option value="">Select Part Number</option>
+                    {% for part in part_numbers %}
+                        <option value="{{ part.id }}" {% if part.id|stringformat:"s" == selected_part_number %} selected {% endif %}>
+                            {{ part.part_number }}
+                        </option>
+                    {% endfor %}
+                </select>
+            </div>
+            <!-- Shift Selection --> 
+            <div class="form-group" id="shift-group"> 
+                <label for="shift">Shift</label> 
+                <select id="shift" name="shift"> 
+                    <option value="">All </option> <!-- Default 'All' option --> 
+                    {% for shift in shifts %} 
+                        <option value="{{ shift.shift_name }}" {% if shift.shift_name == selected_shift %} selected {% endif %}> 
+                            {{ shift.shift_name }} 
+                        </option> 
+                    {% endfor %} 
+                </select> 
+            </div>
+            <div class="form-group">
+                <label for="status">Status</label>
+                <select id="status" name="status">
+                    <option value="OK" {% if request.GET.status == "OK" %}selected{% endif %}>OK </option>
+                    <option value="NOK" {% if request.GET.status == "NOK" %}selected{% endif %}>NOK</option>
+                </select>
+            </div>
+            <div class="button-group">
+                <button type="submit" id="generateReportButton" class="report-button"><i class="fas fa-file-alt"></i> Generate Report</button>
+                <button onclick="exportToExcel()" class="excel-button"><i class="fas fa-file-excel"></i> Download Excel</button>
+                <button onclick="exportToPDF()" class="pdf-button"><i class="fas fa-file-pdf"></i> Download PDF</button> <!-- New PDF button -->
+            </div>
+        </form>
+</div>
+<div class="report-container">
+    <!-- Left-side Pie Chart with OK/NOK Counts -->
+    <div class="left-section">
+        {% if chart %}
+            <img src="data:image/png;base64,{{ chart }}" alt="Status Pie Chart" class="large-pie-chart" />
+        {% else %}
+            <p>No data to display in pie chart.</p>
+        {% endif %}
+
+        <!-- OK and NOK Totals Below Pie Chart -->
+        <div class="totals-info">
+            <p>Total OK: {{ ok_count }}</p>
+            <p>Total NOK: {{ nok_count }}</p>
+        </div>
+
+        <!-- Legend for OK and NOK -->
+        <div class="legend">
+            <div class="legend-item">
+                <span class="legend-color ok-color"></span> OK
+            </div>
+            <div class="legend-item">
+                <span class="legend-color nok-color"></span> NOK
+            </div>
+        </div>
+    </div>
+</div>
+    <!-- Display area for results -->
+    <div id="resultsContainer ">
+        <table class="data-table">    
+            <thead>
+                <tr>
+                    <th>Part Number</th>
+                    <th>Highest Value</th>
+                    <th>Station No</th>
+                    <th>Status</th>
+                    <th>Shift</th>
+                    <th>Date</th>
+                </tr>
+            </thead>
+            <tbody>
+                {% for report in report_data %}
+                    <tr>
+                        <td>{{ report.part_number_id }}</td>
+                        <td>{{ report.highest_value }}</td>
+                        <td>{{ report.filter_no }}</td>
+                        <td>{{ report.status }}</td>
+                        <td>{{ report.shift }}</td>
+                        <td>{{ report.date }}</td>
+                    </tr>  <!-- This was missing -->
+                {% empty %}
+                    <tr>
+                        <td colspan="7">No data found for the selected status.</td>
+                    </tr>
+                {% endfor %}
+
+            </tbody>
+        </table>
+    </div>
+</div>
+    <!-- jQuery script -->
+    <script src="https://code.jquery.com/jquery-3.6.0.min.js"></script>
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/jspdf/2.4.0/jspdf.umd.min.js"></script>
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/jspdf-autotable/3.5.23/jspdf.plugin.autotable.min.js"></script>
+    <script src="https://cdn.jsdelivr.net/npm/xlsx/dist/xlsx.full.min.js"></script>
+    <script>
+        $(document).ready(function () {
+            $('#filterButton').on('click', function () {
+                var formData = $('#filterForm').serialize();
+                $.ajax({
+                    type: 'GET',
+                    url: 'report',
+                    data: formData,
+                    success: function (data) {
+                        $('#resultsTableBody').empty(); // Clear previous results
+                        if (data.length > 0) {
+                            data.forEach(function (result) {
+                                var newRow = "<tr>" +
+                                    "<td>" + result.model_name + "</td>" +
+                                    "<td>" + result.result + "</td>" +
+                                    "<td>" + result.shift + "</td>" 
+                                    "<td>" + result.date + "</td>" +
+                                    "</tr>";
+
+                                    var newRow = "<tr>" +
+                                        "<td>" + result.model_name + "</td>" +
+                                        "<td>" + result.result + "</td>" +
+                                        "<td>" + result.shift + "</td>" +
+                                        "<td>" + result.date + "</td>" +
+                                        "</tr>";
+
+                                $('#resultsTableBody').append(newRow);
+                            });
+                        } else {
+                            $('#resultsTableBody').html('<tr><td colspan="5" class="no-results">No results found</td></tr>');
+                        }
+                        $('#resultsContainer').show(); // Show results container
+                    },
+                    error: function (error) {
+                        console.log('Error fetching data:', error);
+                    }
+                });
+            });
+        });
+
+        function openContactModal() {
+        document.getElementById('contactModal').style.display = 'block';
+    }
+
+    function closeContactModal() {
+        document.getElementById('contactModal').style.display = 'none';
+    }
+
+    // Close modal if clicked outside of it
+    window.onclick = function(event) {
+        var modal = document.getElementById('contactModal');
+        if (event.target == modal) {
+            modal.style.display = 'none';
+        }
+    };
+    function showImage(url) {
+        // Get the modal element and image element
+        var modal = document.getElementById("imageModal");
+        var modalImage = document.getElementById("modalImage");
+
+        // Set the image URL and display the modal
+        modalImage.src = url;
+        modal.style.display = "block";
+    }
+    function closeModal() {
+        // Hide the modal
+        var modal = document.getElementById("imageModal");
+        modal.style.display = "none";
+    }
+    window.onclick = function(event) {
+        var modal = document.getElementById("imageModal");
+        if (event.target == modal) {
+            modal.style.display = "none";
+        }
+    }
+    function formatDate(input) {
+    if (input.type === 'date' && input.value) {
+        const [year, month, day] = input.value.split("-");
+        if (year && month && day) {
+            input.type = 'text'; // Change type back to text for display
+            input.value = `${day}/${month}/${year}`;
+        }
+    }
+}
+function exportToExcel() {
+    const reportTable = document.querySelector(".data-table");
+    if (!reportTable) {
+        alert("Table not found!");
+        return;
+    }
+
+    const excelData = [];
+    const rows = reportTable.querySelectorAll("thead tr, tbody tr");
+
+    // Extract data from table rows
+    rows.forEach((row, index) => {
+        const rowData = [];
+        row.querySelectorAll("th, td").forEach(cell => {
+            rowData.push(cell.textContent.trim());
+        });
+        excelData.push(rowData);
+    });
+
+    // Create a worksheet and add data
+    const worksheet = XLSX.utils.aoa_to_sheet(excelData);
+
+    // Adjust column widths for better visibility
+    worksheet["!cols"] = [
+        { wch: 15 }, // Batch
+        { wch: 25 }, // Recipe Name
+        { wch: 20 }, // Batch Quantity
+        { wch: 25 }, // Remark
+        { wch: 15 }, // Status
+        { wch: 20 }, // Required Time
+        { wch: 20 }  // All Batch Time
+    ];
+
+    // Create a workbook and append the worksheet
+    const workbook = XLSX.utils.book_new();
+    XLSX.utils.book_append_sheet(workbook, worksheet, 'Report');
+
+    // Save the workbook as an Excel file
+    XLSX.writeFile(workbook, 'Generated_Report.xlsx');
+}
+
+function exportToPDF() {
+    // Load jsPDF
+    const { jsPDF } = window.jspdf;
+
+    // Initialize a new PDF document
+    const doc = new jsPDF('p', 'mm', 'a4'); // Portrait mode, millimeters, A4 size
+
+    // Set the title for the PDF
+    doc.setFontSize(14);
+    doc.setTextColor(0, 51, 102); // Dark blue color
+    doc.text("Generated Report", 14, 15);
+
+    // Extract data from the table
+    const reportTable = document.querySelector(".data-table");
+    if (!reportTable) {
+        alert("Table not found!");
+        return;
+    }
+
+    const rows = Array.from(reportTable.querySelectorAll("tbody tr"));
+    if (rows.length === 0) {
+        alert("No data available to export.");
+        return;
+    }
+
+    const pdfData = rows.map(row => 
+        Array.from(row.querySelectorAll("td")).map(cell => cell.textContent.trim())
+    );
+
+    // Define the headers for the PDF table
+    const headers = [
+        ["Part Number", "Highest Value", "Station No", "Status", "Shift", "Date"]
+    ];
+
+    // Use autoTable to create the table in PDF
+    doc.autoTable({
+        head: headers,
+        body: pdfData,
+        startY: 25, // Start table below the title
+        theme: 'striped', // Use striped theme for better readability
+        styles: {
+            fontSize: 7, // Smaller font size to fit more data
+            cellPadding: 2, // Reduce padding for a tighter layout
+            halign: 'center', // Center-align text
+            overflow: 'linebreak', // Wrap text within the cell
+        },
+        headStyles: {
+            fillColor: [0, 51, 102], // Dark blue header background
+            textColor: [255, 255, 255], // White text in headers
+            fontSize: 8, // Slightly larger font for headers
+            fontStyle: 'bold', // Bold header text
+            halign: 'center', // Center-align header text
+        },
+        alternateRowStyles: {
+            fillColor: [240, 240, 240] // Light gray alternating rows
+        },
+        margin: { top: 25, left: 10, right: 10 }, // Proper margins to fit the table
+        pageBreak: 'auto', // Automatically add page breaks when needed
+        didDrawPage: function (data) {
+            // Add a footer with the page number
+            const pageCount = doc.internal.getNumberOfPages();
+            doc.setFontSize(8);
+            doc.setTextColor(100);
+            doc.text(`Page ${pageCount}`, data.settings.margin.left, doc.internal.pageSize.height - 10);
+        }
+    });
+    // Save the PDF file
+    doc.save('Generated_Report.pdf');
+}
+function renderPieChart(okCount, notOkCount) {
+    const ctx = document.getElementById('jobStatusChart').getContext('2d');
+    // Destroy any existing chart instance
+    if (window.jobStatusChart) {
+        window.jobStatusChart.destroy();
+    }
+
+    window.jobStatusChart = new Chart(ctx, {
+        type: 'pie',
+        data: {
+            labels: ['OK', 'Not OK'],
+            datasets: [{
+                label: 'Job Status',
+                data: [okCount, notOkCount],
+                backgroundColor: ['#4CAF50', '#FF5722'],
+            }]
+        },
+        options: {
+            responsive: true,
+            plugins: {
+                legend: {
+                    position: 'top',
+                },
+                title: {
+                    display: true,
+                    text: 'Job Status Summary'
+                }
+            }
+        }
+    });
+}
+
+// Example data processing after AJAX fetch success
+$('#filterButton').on('click', function () {
+    let okCount = 0;
+    let notOkCount = 0;
+
+    data.forEach(result => {
+        if (result.result === 'OK') {
+            okCount++;
+        } else if (result.result === 'NOK') {
+            notOkCount++;
+        }
+    });
+
+    // Call the function to render the pie chart
+    renderPieChart(okCount, notOkCount);
+});
+</script>
+<script>
+    document.addEventListener("DOMContentLoaded", function () {
+        const dateInput = document.getElementById("date");
+        const monthSelect = document.getElementById("month");
+        const yearSelect = document.getElementById("year");
+
+        // Debugging: Check if elements are found
+        console.log("Date Input:", dateInput);
+        console.log("Month Select:", monthSelect);
+        console.log("Year Select:", yearSelect);
+
+        function toggleFields() {
+            console.log("Date Value:", dateInput.value);
+            console.log("Month Value:", monthSelect.value);
+            console.log("Year Value:", yearSelect.value);
+
+            if (dateInput.value) {
+                console.log("Disabling Month & Year...");
+                monthSelect.disabled = true;
+                yearSelect.disabled = true;
+                monthSelect.value = ""; // Clear month selection
+                yearSelect.value = ""; // Clear year selection
+            } else if (monthSelect.value && yearSelect.value) {
+                console.log("Disabling Date...");
+                dateInput.disabled = true;
+                dateInput.value = ""; // Clear date selection
+            } else {
+                console.log("Enabling all fields...");
+                dateInput.disabled = false;
+                monthSelect.disabled = false;
+                yearSelect.disabled = false;
+            }
+        }
+
+        // Event Listeners with Logging
+        dateInput.addEventListener("change", function () {
+            console.log("Date Changed:", dateInput.value);
+            toggleFields();
+        });
+
+        monthSelect.addEventListener("change", function () {
+            console.log("Month Changed:", monthSelect.value);
+            toggleFields();
+        });
+
+        yearSelect.addEventListener("change", function () {
+            console.log("Year Changed:", yearSelect.value);
+            toggleFields();
+        });
+
+        // Ensure fields are set correctly on load
+        toggleFields();
+    });
+</script>
+
+{% endblock %}
