@@ -576,7 +576,9 @@ class DIMonitoringService:
                         
                         # Mark second check as processed
                         self.pending_di_changes[di_name]["processed_second_check"] = True
+
                         print(f"Completed processing both first and second checks for {di_name}")
+                        
                     else:
                         print(f"No values found for second check (15s) yet.")
                 else:
@@ -717,6 +719,7 @@ class DIMonitoringService:
             cursor.execute(query, (di_name, before_time))
             result = cursor.fetchone()
             
+
             if result:
                 return result['di_value']
             else:
@@ -784,7 +787,6 @@ class DIMonitoringService:
         try:
             print("=============== RUNNING COMPLETE DI DIAGNOSTICS ===============")
             
-            # 1. Check which DIs exist in the database
             cursor.execute("SELECT DISTINCT di_name FROM di_values WHERE di_name BETWEEN 'DI1' AND 'DI16' ORDER BY di_name")
             existing_dis = cursor.fetchall()
             

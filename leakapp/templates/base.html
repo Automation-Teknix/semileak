@@ -18,7 +18,6 @@
     <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.0.0/css/all.min.css">
     
     <!-- Custom CSS -->
-    {% block styles %}{% endblock %}
     <style>
         :root {
             --sidebar-width: 280px;
@@ -66,7 +65,7 @@
             left: 0;
             width: var(--sidebar-width);
             height: calc(100vh - var(--topbar-height));
-            background-color: var(--sidebar-dark);
+            background-color: #062A63;
             padding-top: 1rem;
             z-index: 1000;
             overflow-y: auto;
@@ -76,7 +75,6 @@
             color: white;
             font-size: 1.2rem;
             font-weight: bold;
-            padding: 1rem;
             text-align: center;
         }
 
@@ -110,6 +108,17 @@
             margin-top: var(--topbar-height);
             padding: 2rem;
         }
+        .dropdown-toggle::after {
+            color: black !important;
+        }
+        
+        /* Properly position the dashboard content */
+        .dashboard-content {
+            margin-left: var(--sidebar-width);
+            margin-top: var(--topbar-height);
+            padding: 2rem;
+            width: calc(100% - var(--sidebar-width));
+        }
 
         @media (max-width: 768px) {
             #sidebar-wrapper {
@@ -117,23 +126,61 @@
                 height: auto;
                 position: relative;
             }
-            .main-content {
+            .main-content,
+            .dashboard-content {
                 margin-left: 0;
+                width: 100%;
             }
         }
+        footer .copyright {
+            padding-left: 95px; /* Slight move to the right */
+        }
+        
     </style>
+    {% block styles %}{% endblock %}
 </head>
 <body>
-<!-- Sidebar -->
-<div id="sidebar-wrapper">
-    <div class="sidebar-heading text-center py-3">
+<!-- TopBar -->
+<div id="topbar" class="d-flex justify-content-between align-items-center bg-white py-2" style="border-bottom: 2px solid white;">
+    <div class="sidebar-heading text-center">
         <span>
             <img src="{% static 'images/fleetguard logo.jpeg' %}" alt="Fleetguard Logo" style="width: 220px; height: 50px;">
         </span>
     </div>
 
-    <div class="list-group">
+    <div class="position-absolute start-0 top-0 w-100 h-100 d-flex justify-content-center align-items-center pointer-events-none">
+        <h2 class="mb-0 text-center" style="color: black; white-space: nowrap;">Semi Leak Testing Reporting System</h2>
+    </div>
 
+    <div class="d-flex flex-column align-items-start text-black" style="margin-left: 1200px;">
+        <div class="mb-2">
+            <i class="far fa-calendar-alt"></i>
+            <span id="date">DD-MM-YYYY</span>
+        </div>
+        <div>
+            <i class="far fa-clock"></i>
+            <span id="clock">00:00:00</span>
+        </div>
+    </div>
+
+    <div class="topbar-divider" style="border-top: 2px solid black;"></div>
+    <!-- User Dropdown -->
+    <div class="dropdown ms-3">
+        <a class="nav-link dropdown-toggle" href="#" id="userDropdown" role="button" data-bs-toggle="dropdown" aria-expanded="false">
+            <img class="img-profile rounded-circle" src="{% static 'images/fleetguard logo.jpeg' %}" width="40" height="40" alt="User Avatar" style="border: 0.8px solid black;">
+        </a>
+        <div class="dropdown-menu dropdown-menu-end" aria-labelledby="userDropdown">
+            <a class="dropdown-item" href="{% url 'logout' %}">
+                <i class="fas fa-sign-out-alt fa-sm fa-fw me-2 text-gray-400"></i>
+                Logout
+            </a>
+        </div>
+    </div>
+</div>
+
+<!-- Sidebar -->
+<div id="sidebar-wrapper">
+    <div class="list-group">
         <a href="{% url 'leak_test' %}" class="sidebar-link {% if request.resolver_match.url_name == 'leak_test' %}active{% endif %}">
             <i class="fas fa-vial"></i> Leak Test
         </a>
@@ -142,17 +189,10 @@
             <i class="fas fa-cogs"></i> Parts
         </a>
         
-        
         <a href="{% url 'report' %}" class="sidebar-link {% if request.resolver_match.url_name == 'report' %}active{% endif %}">
             <i class="fas fa-chart-line"></i> Report
         </a>
         
-        {% comment %} {% if request.user.is_authenticated and request.user.is_staff %}
-            <a href="{% url '#' %}" class="sidebar-link {% if request.resolver_match.url_name == '#' %}active{% endif %}">
-                <i class="fas fa-users"></i> Contact
-            </a>
-        {% endif %} {% endcomment %}
-
         <!-- Contact Modal -->
         <a href="#" class="sidebar-link" data-bs-toggle="modal" data-bs-target="#contactModal">
             <i class="fas fa-envelope"></i> Contact
@@ -164,59 +204,6 @@
     </div>
 </div>
 
-<!-- TopBar -->
- <div id="topbar" class="d-flex justify-content-between align-items-center bg-white py-2" style="border-bottom: 2px solid white;">
-    <div class="d-flex align-items-center">
-        <img src="{% static 'images/logo.png' %}" alt="Logo" style="height: 50px; margin-right: 10px;">
-        <span class="fs-4 fw-bold text-white">Dashboard</span>
-    </div>
-{% comment %} <div id="topbar" class="d-flex justify-content-between align-items-center px-4 bg-dark py-2"> {% endcomment %}
-    <!-- Logo and Heading -->
-  <div class="d-flex align-items-center">
-    <h2 class="mb-0" style="color: black;">Semi Leak Testing Reporting System</h2>
-</div>
-
-
-    {% comment %} <!-- Clock and User Profile -->
-    <div class="d-flex align-items-center">
-        <div class="live-clock me-3 text-white">
-            <i class="far fa-calendar-alt"></i>
-            <span id="date">DD-MM-YYYY</span>
-            <span class="mx-2">|</span>
-            <i class="far fa-clock"></i>
-            <span id="clock">00:00:00</span>
-        </div> {% endcomment %}
-        <!-- Clock and User Profile -->
-<!-- Clock and User Profile -->
-<div class="d-flex flex-column align-items-start text-black" style="margin-left: 400px;">
-    <div class="mb-2">
-        <i class="far fa-calendar-alt"></i>
-        <span id="date">DD-MM-YYYY</span>
-    </div>
-    <div>
-        <i class="far fa-clock"></i>
-        <span id="clock">00:00:00</span>
-    </div>
-</div>
-
-
-
-<div class="topbar-divider" style="border-top: 2px solid black;"></div>
-           <!-- User Dropdown -->
-           <div class="dropdown ms-3">
-            <a class="nav-link dropdown-toggle" href="#" id="userDropdown" role="button" data-bs-toggle="dropdown" aria-expanded="false">
-                <!-- <span class="d-none d-lg-inline text-gray-600 small me-2">Welcome User</span> -->
-                <img class="img-profile rounded-circle" src="{% static 'images/fleetguard logo.jpeg' %}" width="32" height="32" alt="User Avatar" style="border: 2px solid black;">            </a>
-            <div class="dropdown-menu dropdown-menu-end" aria-labelledby="userDropdown">
-                <a class="dropdown-item" href="{% url 'logout' %}">
-                    <i class="fas fa-sign-out-alt fa-sm fa-fw me-2 text-gray-400"></i>
-                    Logout
-                </a>
-            </div>
-        </div>
-    </div>
-</div>
-
 <!-- Main Content -->
 <div id="content-wrapper">
     <div class="dashboard-content">
@@ -224,77 +211,53 @@
         {% endblock %}
     </div>
 
-    <!-- Footer -->
     <footer class="sticky-footer bg-white mt-auto">
         <div class="container my-auto">
-            <div class="copyright text-center my-auto">
+            <div class="copyright text-center my-auto" style="margin-left: 95px;">
                 <span>Developed by Team AT 
                     <img class="at-logo" src="{% static 'images/at_logo.jpeg' %}" alt="AT Logo" style="height: 20px;">
                 </span>
             </div>
         </div>
     </footer>
-</div>
+    
 
-
-{% comment %}   
-  <!-- Contact Modal -->
-  <div class="modal fade" id="contactModal" tabindex="-1" aria-labelledby="contactModalLabel" aria-hidden="true">
-    <div class="modal-dialog modal-dialog-centered">
-      <div class="modal-content"> {% endcomment %}
-  
-       <!-- Contact Modal -->
 <!-- Contact Modal -->
 <div class="modal fade" id="contactModal" tabindex="-1" aria-labelledby="contactModalLabel" aria-hidden="true">
     <div class="modal-dialog modal-dialog-centered">
-      <div class="modal-content">
+        <div class="modal-content">
+            <!-- Modal Header -->
+            <div class="modal-header">
+                <h5 class="modal-title" id="contactModalLabel">Contact Information</h5>
+                <button type="button" class="btn-close" data-bs-dismiss="modal" aria-label="Close"></button>
+            </div>
   
-        <!-- Modal Header -->
-        <div class="modal-header">
-          <h5 class="modal-title" id="contactModalLabel">Contact Information</h5>
-          <button type="button" class="btn-close" data-bs-dismiss="modal" aria-label="Close"></button>
+            <!-- Modal Body -->
+            <div class="modal-body text-center">
+                <img src="{% static 'images/mainlogo.jpg' %}" alt="Logo" class="img-fluid mb-3" style="max-width: 100px;">
+                <h6 class="mb-1">Sandeep Bhadkamkar</h6>
+                <p><i class="fas fa-phone-alt"></i> 9890033285</p>
+                <p>
+                    <i class="fas fa-globe"></i> 
+                    <a href="http://www.automationteknix.com" target="_blank">www.automationteknix.com</a>
+                </p>
+                <p>
+                    <i class="fas fa-envelope"></i> 
+                    <a href="mailto:sandeep@automationteknix.com">sandeep@automationteknix.com</a>
+                </p>
+            </div>
+  
+            <!-- Modal Footer -->
+            <div class="modal-footer">
+                <button type="button" class="btn btn-secondary" data-bs-dismiss="modal">Close</button>
+            </div>
         </div>
-  
-        <!-- Modal Body -->
-        <div class="modal-body text-center">
-          <img src="{% static 'images/mainlogo.jpg' %}" alt="Logo" class="img-fluid mb-3" style="max-width: 100px;">
-          <h6 class="mb-1">Sandeep Bhadkamkar</h6>
-          <p><i class="fas fa-phone-alt"></i> 9890033285</p>
-          <p>
-            <i class="fas fa-globe"></i> 
-            <a href="http://www.automationteknix.com" target="_blank">www.automationteknix.com</a>
-          </p>
-          <p>
-            <i class="fas fa-envelope"></i> 
-            <a href="mailto:sandeep@automationteknix.com">sandeep@automationteknix.com</a>
-          </p>
-        </div>
-  
-        <!-- Optional Modal Footer -->
-        <div class="modal-footer">
-          <button type="button" class="btn btn-secondary" data-bs-dismiss="modal">Close</button>
-        </div>
-  
-      </div>
     </div>
-  </div>
-  
-  
-  
-        {% comment %} <!-- Optional Footer -->
-        <div class="modal-footer">
-          <button type="button" class="btn btn-secondary" data-bs-dismiss="modal">Close</button>
-        </div> {% endcomment %}
-  
-      </div>
-    </div>
-  </div>
+</div>
 
 <!-- Bootstrap JS Bundle with Popper -->
 <script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
 <script src="https://cdn.jsdelivr.net/npm/bootstrap@5.3.0/dist/js/bootstrap.bundle.min.js"></script>
-
-<!-- Chart.js - Uncomment if you need charts -->
 
 <!-- Custom JavaScript -->
 <script>
@@ -323,87 +286,7 @@ function updateClock() {
 document.addEventListener('DOMContentLoaded', function() {
     // Initialize date and time
     updateClock();
-    
-    // Sidebar toggle
-    const sidebarToggle = document.getElementById('sidebarToggle');
-    const sidebarToggleTop = document.getElementById('sidebarToggleTop');
-    const sidebarWrapper = document.getElementById('sidebar-wrapper');
-    const contentWrapper = document.getElementById('content-wrapper');
-    const topbar = document.getElementById('topbar');
-    
-    function toggleSidebar() {
-        sidebarWrapper.classList.toggle('active');
-        contentWrapper.classList.toggle('active');
-        topbar.classList.toggle('active');
-    }
-    
-    if (sidebarToggle) {
-        sidebarToggle.addEventListener('click', toggleSidebar);
-    }
-    
-    if (sidebarToggleTop) {
-        sidebarToggleTop.addEventListener('click', toggleSidebar);
-    }
-    
-    // Dropdown toggle for sidebar submenus
-    const dropdownToggles = document.querySelectorAll('.sidebar-dropdown .dropdown-toggle');
-    
-    dropdownToggles.forEach(function(toggle) {
-        toggle.addEventListener('click', function(e) {
-            e.preventDefault();
-            const parent = this.parentElement;
-            parent.classList.toggle('active');
-        });
-    });
-    
-    // Initialize tooltips if Bootstrap's tooltip component is used
-    try {
-        const tooltipTriggerList = [].slice.call(document.querySelectorAll('[data-bs-toggle="tooltip"]'));
-        tooltipTriggerList.map(function (tooltipTriggerEl) {
-            return new bootstrap.Tooltip(tooltipTriggerEl);
-        });
-    } catch (e) {
-        console.log('Tooltip initialization skipped');
-    }
-    
-    // Check for mobile size on load and resize
-    function checkWindowSize() {
-        if (window.innerWidth < 992) {
-            sidebarWrapper.classList.remove('active');
-            contentWrapper.classList.remove('active');
-            topbar.classList.remove('active');
-        } else {
-            sidebarWrapper.classList.add('active');
-            contentWrapper.classList.add('active');
-            topbar.classList.add('active');
-        }
-    }
-    
-    window.addEventListener('resize', checkWindowSize);
-    checkWindowSize(); // Check on initial load
 });
-
-// Add custom scripts or chart initializations below
 </script>
-<script>
-    function updateClock() {
-      const clock = document.getElementById("clock");
-      const date = document.getElementById("date");
-      const now = new Date();
-  
-      const hours = now.getHours().toString().padStart(2, '0');
-      const minutes = now.getMinutes().toString().padStart(2, '0');
-      const seconds = now.getSeconds().toString().padStart(2, '0');
-      clock.textContent = `${hours}:${minutes}:${seconds}`; 
-  
-      const year = now.getFullYear();
-      const month = (now.getMonth() + 1).toString().padStart(2, '0');
-      const day = now.getDate().toString().padStart(2, '0');
-      date.textContent = `${day}/${month}/${year}`;
-    }
-  
-    setInterval(updateClock, 1000);
-    updateClock();
-  </script>
-  
+</body>
 </html>

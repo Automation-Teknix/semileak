@@ -1,12 +1,12 @@
-{% include 'base.html' %}
+{% extends 'base.html' %}
 {% load static %}
 {% load custom_filters %}
 
-
+{% block styles %}
 <style>
     .dropdown-container {
         position: relative;
-        width: 100%;
+        width: 200px;
     }
 
     .dropdown-menu {
@@ -27,64 +27,19 @@
         align-items: center;
         gap: 10px;
     }
+    
     .table-container {
         max-height: 60vh;
         overflow-y: auto;
         padding-bottom: 100px;
     }
-    
-
 
     .leak-card {
         color: #fff;
         border-radius: 10px;
-        padding: 15px;
-        min-height: 180px;
-    }
-
-    .leak-card h5 {
-        font-weight: bold;
-    }
-
-    .leak-card span {
-        font-weight: 500;
-    }
-
-    .card-grid .col {
         padding: 10px;
-    }
-    .leak-card {
-        color: #fff;
-        border-radius: 8px;
-        padding: 10px;
-        min-height: 120px; /* reduced from 180px */
-        font-size: 0.9rem;  /* slightly smaller font */
-    }
-    
-    .leak-card h5 {
-        font-weight: bold;
-        font-size: 1rem;  /* reduced */
-        margin-bottom: 6px;
-    }
-    
-    .leak-card span {
-        font-weight: 500;
-    }
-    
-    .card-grid .col {
-        padding: 8px;
-    }
-    .leak-card:hover {
-        transform: scale(1.02);
-        transition: transform 0.2s ease-in-out;
-        box-shadow: 0 4px 12px rgba(0,0,0,0.15);
-    }
-    .leak-card {
-        color: #fff;
-        border-radius: 10px;
-        padding: 10px;
-        min-height: 200px; /* reduced from 180px */
-        font-size: 0.9rem; /* slightly smaller text */
+        min-height: 200px;
+        font-size: 0.9rem;
     }
     
     .leak-card h5 {
@@ -97,12 +52,16 @@
         margin-bottom: 6px;
         font-size: 0.85rem;
     }
+    
+    .leak-card:hover {
+        transform: scale(1.02);
+        transition: transform 0.2s ease-in-out;
+        box-shadow: 0 4px 12px rgba(0,0,0,0.15);
+    }
+    
     .card-body {
         padding: 10px !important;
     }
-        
-
-
 
     .status-card {
         padding: 1rem;
@@ -118,19 +77,40 @@
         font-size: 1.25rem;
         font-weight: bold;
         margin-top: 0.5rem;
+        color:white;
     }
     
     .status-subtext {
-        font-size: 0.875rem;
+        font-size: 1.875rem;
         margin-top: 0.25rem;
+        font-weight: bold;
+    }
+
+    /* New styles for status circles */
+    .status-circle {
+        display: inline-block;
+        width: 25px;
+        height: 25px;
+        border-radius: 50%;
+        margin-left: 5px;
     }
     
-        
-
+    .status-ok {
+        background-color: #01ff3b;  /* Green */
+    }
+    
+    .status-nok {
+        background-color: #ff0018;  /* Red */
+    }
+    
+    .status-neutral {
+        background-color: #6c757d;  /* Gray for unknown status */
+    }
 </style>
+{% endblock %}
 
 {% block content %}
-<div class="container mt-4">
+<div class="container-fluid">
     <div class="row mb-3 d-flex justify-content-between">
         <div class="col-auto">
             <h2 class="mb-3">Leak Test</h2>
@@ -140,8 +120,6 @@
             <h5>IOT 2: <span id="server_2_status" style="font-weight:bold; color:gray;">Loading...</span></h5>
         </div>
     </div>
-</div>
-
 
     <!-- Part Selection Input -->
     <div class="d-flex align-items-center justify-content-between mb-3">
@@ -154,75 +132,33 @@
             <button class="btn btn-danger" id="stop_button">FOI Stop</button>
         </div>
     </div>
-
-    <!-- Leak Test Tables -->
-    {% comment %} <div class="table-container">
+    
     <div class="row">
-        <div class="col-md-6">
-            <table class="table table-bordered">
-                <thead style="background-color: #062A63; color: #fff;">
-                    <tr>
-                        <th>Station No</th>
-                        <th>Leakage Value</th>
-                        <th>Highest Value</th>
-                        <th>Result</th>
-                    </tr>
-                </thead>
-                <tbody>
-                    {% for filter_no in filter_names|slice:":9" %}
-                    <tr>
-                        <td>{{ filter_no }}</td>
-                        <td id="filter_value_{{ filter_no }}">-</td>
-                        <td id="highest_value_{{ filter_no }}">-</td>
-                        <td id="status_{{ filter_no }}">-</td>                        
-                    </tr>
-                    {% endfor %}
-                </tbody>
-            </table>
-        </div>
-
-        <div class="col-md-6">
-            <table class="table table-bordered">
-                <thead style="background-color: #062A63; color: #fff;">
-                    <tr>
-                        <th>Station No</th>
-                        <th>Leakage Value</th>
-                        <th>Highest Value</th>
-                        <th>Result</th>
-                    </tr>
-                </thead>
-                <tbody>
-                    {% for filter_no in filter_names|slice:"9:" %}
-                    <tr>
-                        <td>{{ filter_no }}</td>
-                        <td id="filter_value_{{ filter_no }}">-</td>
-                        <td id="highest_value_{{ filter_no }}">-</td>
-                        <td id="status_{{ filter_no }}">-</td>
-                    </tr>
-                    {% endfor %}
-                </tbody>
-            </table>
-        </div>
-    </div>
-  </div>
-</div> {% endcomment %}
-<div class="row">
-    {% for filter_no in filter_names %}
-    <div class="col-xl-3 col-md-6 mb-4">
-        <div class="status-card text-white rounded shadow" style="background-color: {{ forloop.counter0|color_palette }};">
-            <div class="card-body">
-                <div>
-                    <div class="status-text">Station {{ filter_no }}</div>
-                    <div class="status-value">Leakage: <span id="filter_value_{{ filter_no }}">-</span></div>
-                    <div class="status-subtext">Highest: <span id="highest_value_{{ filter_no }}">-</span></div>
-                    <div class="status-subtext">Result: <span id="status_{{ filter_no }}" class="fw-bold">-</span></div>
+        {% for filter_no in filter_names %}
+            {% if forloop.counter == 17 %}
+                </div> <!-- close previous row -->
+                <div class="row justify-content-center"> <!-- start new centered row for last two cards -->
+            {% endif %}
+        <div class="col-xl-3 col-md-6 mb-4">
+            <div class="status-card text-white rounded shadow" style="background-color: {{ forloop.counter0|color_palette }};">
+                <div class="card-body">
+                    <div>
+                        <div class="status-text">Station : {{ filter_no }}</div>
+                        <!-- Highest and Result side by side -->
+                        <div class="d-flex justify-content-between">
+                            <div class="status-subtext"><span id="highest_value_{{ filter_no }}">-</span></div>
+                            <div class="status-subtext text-end">
+                                <div id="status_circle_{{ filter_no }}" class="status-circle status-neutral"></div>
+                            </div>                   
+                        </div>
+                        <div class="status-value">Leakage Value:<span id="filter_value_{{ filter_no }}">-</span></div>
+                    </div>
                 </div>
             </div>
         </div>
+        {% endfor %}
     </div>
-    {% endfor %}
 </div>
-
 
 <script>
    document.addEventListener("DOMContentLoaded", function () {
@@ -254,7 +190,7 @@
             const data = latestData[filterNo];
             const filterValueElement = document.getElementById(`filter_value_${filterNo}`);
             const highestValueElement = document.getElementById(`highest_value_${filterNo}`);
-            const statusElement = document.getElementById(`status_${filterNo}`);
+            const statusCircleElement = document.getElementById(`status_circle_${filterNo}`);
             
             // Update leakage value if present
             filterValueElement.textContent = data.leakage_value || "-";
@@ -262,37 +198,33 @@
             // Update highest value if present
             highestValueElement.textContent = data.highest_value || "-";
             
-            // Update status if present
-            statusElement.textContent = data.status || "-";
-
-            // Apply color based on status
+            // Update status circle based on status
+            statusCircleElement.classList.remove('status-ok', 'status-nok', 'status-neutral');
+            
             if (data.status === "OK") {
-                statusElement.style.color = "green";
-                statusElement.style.fontWeight = "bold";
+                statusCircleElement.classList.add('status-ok');
             } else if (data.status === "NOK") {
-                statusElement.style.color = "red";
-                statusElement.style.fontWeight = "bold";
+                statusCircleElement.classList.add('status-nok');
             } else {
-                statusElement.style.color = "black";  // Default color
-                statusElement.style.fontWeight = "normal";
+                statusCircleElement.classList.add('status-neutral');
             }
             
             // Apply grey color if values are older than 1 minute
             if (data.leakage_timestamp) {
                 const leakageAgeInSeconds = currentTime - data.leakage_timestamp;
                 if (leakageAgeInSeconds > oneMinuteInSeconds) {
-                    filterValueElement.style.color = "grey";
+                    filterValueElement.style.color = "White";
                 } else {
-                    filterValueElement.style.color = "black";
+                    filterValueElement.style.color = "white";
                 }
             }
             
             if (data.highest_timestamp) {
                 const highestAgeInSeconds = currentTime - data.highest_timestamp;
                 if (highestAgeInSeconds > oneMinuteInSeconds) {
-                    highestValueElement.style.color = "grey";
+                    highestValueElement.style.color = "white";
                 } else {
-                    highestValueElement.style.color = "black";
+                    highestValueElement.style.color = "White";
                 }
             }
         });
@@ -350,17 +282,11 @@
         }
     });
 
-    // Position dropdown dynamically
+    // Position dropdown directly below the input field
     function positionDropdown() {
-        const rect = inputField.getBoundingClientRect();
-        dropdown.style.position = "absolute";
-        dropdown.style.top = `${window.scrollY + rect.bottom}px`;
-        dropdown.style.left = `${window.scrollX + rect.left}px`;
-        dropdown.style.width = `${rect.width}px`;
-
-        if (rect.bottom + dropdown.offsetHeight > window.innerHeight) {
-            dropdown.style.top = `${window.scrollY + rect.top - dropdown.offsetHeight}px`;
-        }
+        dropdown.style.width = `${inputField.offsetWidth}px`;
+        // The dropdown is already positioned relative to the dropdown-container
+        // due to the absolute positioning and top: 100%
     }
 
     // Handle FOI Start button click
@@ -482,8 +408,7 @@
 
     fetchServerStatus();
 
-    setInterval(fetchServerStatus, 2000);  // Wait 2 seconds before fetching the server status again
+    setInterval(fetchServerStatus, 2000);  
 });
-
 </script>
 {% endblock %}

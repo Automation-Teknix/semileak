@@ -165,7 +165,7 @@ def leak_test_page(request):
 def leak_test_view(request):
     """Fetches and returns leak test data for a selected part number."""
     part_number = request.GET.get('part_number', '').strip()
-    filter_numbers = [f'AI{i}' for i in range(1, 17)]  # AI1 to AI16 (Fixed)
+    filter_numbers = [f'AI{i}' for i in range(1, 19)]  # AI1 to AI16 (Fixed)
 
     # Default empty data
     latest_data = {filter_no: {"leakage_value": "-", "highest_value": "-", "status": "-", 
