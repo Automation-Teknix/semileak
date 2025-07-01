@@ -118,6 +118,9 @@
         <div class="col-auto">
             <h5>IOT 1: <span id="server_1_status" style="font-weight:bold; color:gray;">Loading...</span></h5>
             <h5>IOT 2: <span id="server_2_status" style="font-weight:bold; color:gray;">Loading...</span></h5>
+            </div>
+            <div class="col-auto">
+            <h5>IOT 3: <span id="server_3_status" style="font-weight:bold; color:gray;">Loading...</span></h5>
         </div>
     </div>
 
@@ -384,6 +387,7 @@
 
             updateServerUI("server_1_status", data.server_connection_1);
             updateServerUI("server_2_status", data.server_connection_2);
+            updateServerUI("server_3_status", data.server_connection_3);
         } catch (error) {
             console.error("Error fetching server status:", error);
         } finally {

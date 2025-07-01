@@ -66,6 +66,37 @@ WSGI_APPLICATION = 'auto_leak.wsgi.application'
 # Database
 # https://docs.djangoproject.com/en/5.1/ref/settings/#databases
 
+# DATABASES = {
+#     'default': {
+#         'ENGINE': 'django.db.backends.mysql',
+#         'NAME': 'semileak',
+#         'USER': 'root',
+#         'PASSWORD': '',
+#         'HOST': 'localhost',
+#         'PORT': '3306',
+#         # 'OPTIONS': {
+#         #     'init_command': "SET sql_mode='STRICT_TRANS_TABLES'",
+#         # }
+#     }
+# }
+
+# DATABASES = {
+#     'default': {
+#         'ENGINE': 'mssql',
+#         'NAME': 'semileak',
+#         'USER': 'sa',
+#         'PASSWORD': '',
+#         'HOST': 'localhost',
+#         'PORT': '1433',
+#         'OPTIONS': {
+#             'driver': 'ODBC Driver 17 for SQL Server',
+#             # 'autocommit': True,
+#             # 'sql_server_collation': 'SQL_Latin1_General_CP1_CI_AS',
+#             # 'extra_params': 'TrustServerCertificate=yes',
+#         },
+#         }
+# }
+
 DATABASES = {
     'default': {
         'ENGINE': 'django.db.backends.mysql',
