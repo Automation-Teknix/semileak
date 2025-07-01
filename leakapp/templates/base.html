@@ -1,0 +1,319 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="utf-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1, shrink-to-fit=no">
+    {% load static %}
+    <meta name="generator" content="pdf2htmlEX"/>
+    <meta http-equiv="X-UA-Compatible" content="IE=edge,chrome=1"/>
+        
+    <title>{% block title %}Admin Dashboard{% endblock %}</title>
+    <meta name="description" content="Admin Dashboard">
+    <meta name="csrf-token" content="{{ csrf_token }}">
+    
+    <!-- Bootstrap 5 CSS -->
+    <link href="https://cdn.jsdelivr.net/npm/bootstrap@5.3.0/dist/css/bootstrap.min.css" rel="stylesheet">
+    
+    <!-- Font Awesome Icons -->
+    <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.0.0/css/all.min.css">
+    
+    <!-- Custom CSS -->
+    <style>
+        :root {
+            --sidebar-width: 280px;
+            --topbar-height: 100px;
+            --primary-color: #4e73df;
+            --secondary-color: #858796;
+            --success-color: #1cc88a;
+            --info-color: #36b9cc;
+            --warning-color: #f6c23e;
+            --danger-color: #e74a3b;
+            --light-color: #f8f9fc;
+            --dark-color: #5a5c69;
+            --sidebar-dark: #212529;
+            --body-bg: #f8f9fc;
+        }
+
+        body {
+            margin: 0;
+            padding: 0;
+            font-family: 'Nunito', 'Segoe UI', Roboto, sans-serif;
+            background-color: var(--body-bg);
+        }
+
+        /* Top Navbar */
+        #topbar {
+            position: fixed;
+            top: 0;
+            left: 0;
+            right: 0;
+            height: var(--topbar-height);
+            background-color: var(--sidebar-dark);
+            color: white;
+            display: flex;
+            align-items: center;
+            justify-content: space-between;
+            padding: 0 1.5rem;
+            z-index: 1001;
+            box-shadow: 0 0.15rem 1.75rem rgba(58, 59, 69, 0.15);
+        }
+
+        /* Sidebar */
+        #sidebar-wrapper {
+            position: fixed;
+            top: var(--topbar-height);
+            left: 0;
+            width: var(--sidebar-width);
+            height: calc(100vh - var(--topbar-height));
+            background-color: #062A63;
+            padding-top: 1rem;
+            z-index: 1000;
+            overflow-y: auto;
+        }
+
+        .sidebar-heading {
+            color: white;
+            font-size: 1.2rem;
+            font-weight: bold;
+            text-align: center;
+        }
+
+        .sidebar-link {
+            display: flex;
+            align-items: center;
+            padding: 0.75rem 1.25rem;
+            font-size: 1rem;
+            color: rgba(255, 255, 255, 0.8);
+            text-decoration: none;
+            border-left: 4px solid transparent;
+            transition: 0.2s;
+        }
+
+        .sidebar-link i {
+            margin-right: 10px;
+            width: 25px;
+            text-align: center;
+        }
+
+        .sidebar-link:hover,
+        .sidebar-link.active {
+            background-color: rgba(255, 255, 255, 0.1);
+            color: #fff;
+            border-left: 4px solid var(--primary-color);
+        }
+
+        /* Content area */
+        .main-content {
+            margin-left: var(--sidebar-width);
+            margin-top: var(--topbar-height);
+            padding: 2rem;
+        }
+        .dropdown-toggle::after {
+            color: black !important;
+        }
+        
+        /* Properly position the dashboard content */
+        .dashboard-content {
+            margin-left: var(--sidebar-width);
+            margin-top: var(--topbar-height);
+            padding: 2rem;
+            width: calc(100% - var(--sidebar-width));
+        }
+
+        @media (max-width: 768px) {
+            #sidebar-wrapper {
+                width: 100%;
+                height: auto;
+                position: relative;
+            }
+            .main-content,
+            .dashboard-content {
+                margin-left: 0;
+                width: 100%;
+            }
+        }
+        footer .copyright {
+            padding-left: 95px; /* Slight move to the right */
+        }
+        
+        /* Responsive fix for topbar right section */
+        .topbar-right-section {
+            gap: 1.5rem;
+        }
+        @media (max-width: 1200px) {
+            .topbar-right-section {
+                gap: 0.5rem;
+            }
+            #topbar h2 {
+                font-size: 1.1rem;
+            }
+        }
+        @media (max-width: 768px) {
+            #topbar {
+                flex-direction: column;
+                height: auto;
+                padding: 0.5rem 0.5rem;
+            }
+            .topbar-right-section {
+                flex-direction: column;
+                align-items: flex-end;
+                gap: 0.2rem;
+            }
+            #topbar h2 {
+                font-size: 1rem;
+            }
+        }
+    </style>
+    {% block styles %}{% endblock %}
+</head>
+<body>
+<!-- TopBar -->
+<div id="topbar" class="d-flex justify-content-between align-items-center bg-white py-2" style="border-bottom: 2px solid white;">
+    <div class="sidebar-heading text-center">
+        <span>
+            <img src="{% static 'images/fleetguard logo.jpeg' %}" alt="Fleetguard Logo" style="width: 220px; height: 50px;">
+        </span>
+    </div>
+
+    <div class="position-absolute start-0 top-0 w-100 h-100 d-flex justify-content-center align-items-center pointer-events-none">
+        <h2 class="mb-0 text-center" style="color: black; white-space: nowrap;">Semi Leak Testing Reporting System</h2>
+    </div>
+
+    <!-- Right section: date/time and profile -->
+    <div class="d-flex flex-row align-items-center ms-auto gap-3 topbar-right-section">
+        <div class="d-flex flex-column align-items-end text-black me-2">
+            <div class="mb-1">
+                <i class="far fa-calendar-alt"></i>
+                <span id="date">DD-MM-YYYY</span>
+            </div>
+            <div>
+                <i class="far fa-clock"></i>
+                <span id="clock">00:00:00</span>
+            </div>
+        </div>
+        <div class="dropdown">
+            <a class="nav-link dropdown-toggle" href="#" id="userDropdown" role="button" data-bs-toggle="dropdown" aria-expanded="false">
+                <img class="img-profile rounded-circle" src="{% static 'images/fleetguard logo.jpeg' %}" width="40" height="40" alt="User Avatar" style="border: 0.8px solid black;">
+            </a>
+            <div class="dropdown-menu dropdown-menu-end" aria-labelledby="userDropdown">
+                <a class="dropdown-item" href="{% url 'logout' %}">
+                    <i class="fas fa-sign-out-alt fa-sm fa-fw me-2 text-gray-400"></i>
+                    Logout
+                </a>
+            </div>
+        </div>
+    </div>
+</div>
+
+<!-- Sidebar -->
+<div id="sidebar-wrapper">
+    <div class="list-group">
+        <a href="{% url 'leak_test' %}" class="sidebar-link {% if request.resolver_match.url_name == 'leak_test' %}active{% endif %}">
+            <i class="fas fa-vial"></i> Leak Test
+        </a>
+        
+        <a href="{% url 'leakapp_list' %}" class="sidebar-link {% if request.resolver_match.url_name == 'leakapp_list' %}active{% endif %}">
+            <i class="fas fa-cogs"></i> Parts
+        </a>
+        
+        <a href="{% url 'report' %}" class="sidebar-link {% if request.resolver_match.url_name == 'report' %}active{% endif %}">
+            <i class="fas fa-chart-line"></i> Report
+        </a>
+        
+        <!-- Contact Modal -->
+        <a href="#" class="sidebar-link" data-bs-toggle="modal" data-bs-target="#contactModal">
+            <i class="fas fa-envelope"></i> Contact
+        </a>
+
+        <a href="{% url 'logout' %}" class="sidebar-link">
+            <i class="fas fa-sign-out-alt"></i> Logout
+        </a>
+    </div>
+</div>
+
+<!-- Main Content -->
+<div id="content-wrapper">
+    <div class="dashboard-content">
+        {% block content %}
+        {% endblock %}
+    </div>
+
+    <footer class="sticky-footer bg-white mt-auto">
+        <div class="container my-auto">
+            <div class="copyright text-center my-auto" style="margin-left: 95px;">
+                <span>Developed by Team AT 
+                    <img class="at-logo" src="{% static 'images/at_logo.jpeg' %}" alt="AT Logo" style="height: 20px;">
+                </span>
+            </div>
+        </div>
+    </footer>
+    
+
+<!-- Contact Modal -->
+<div class="modal fade" id="contactModal" tabindex="-1" aria-labelledby="contactModalLabel" aria-hidden="true">
+    <div class="modal-dialog modal-dialog-centered">
+        <div class="modal-content">
+            <!-- Modal Header -->
+            <div class="modal-header">
+                <h5 class="modal-title" id="contactModalLabel">Contact Information</h5>
+                <button type="button" class="btn-close" data-bs-dismiss="modal" aria-label="Close"></button>
+            </div>
+  
+            <!-- Modal Body -->
+            <div class="modal-body text-center">
+                <img src="{% static 'images/mainlogo.jpg' %}" alt="Logo" class="img-fluid mb-3" style="max-width: 100px;">
+                <h6 class="mb-1">Sandeep Bhadkamkar</h6>
+                <p><i class="fas fa-phone-alt"></i> 9890033285</p>
+                <p>
+                    <i class="fas fa-globe"></i> 
+                    <a href="http://www.automationteknix.com" target="_blank">www.automationteknix.com</a>
+                </p>
+                <p>
+                    <i class="fas fa-envelope"></i> 
+                    <a href="mailto:sandeep@automationteknix.com">sandeep@automationteknix.com</a>
+                </p>
+            </div>
+  
+            <!-- Modal Footer -->
+            <div class="modal-footer">
+                <button type="button" class="btn btn-secondary" data-bs-dismiss="modal">Close</button>
+            </div>
+        </div>
+    </div>
+</div>
+
+<!-- Bootstrap JS Bundle with Popper -->
+<script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
+<script src="https://cdn.jsdelivr.net/npm/bootstrap@5.3.0/dist/js/bootstrap.bundle.min.js"></script>
+
+<!-- Custom JavaScript -->
+<script>
+// Live Date and Time with Indian format
+function updateClock() {
+    const now = new Date();
+    
+    // Update date in Indian format (DD/MM/YYYY)
+    const day = String(now.getDate()).padStart(2, '0');
+    const month = String(now.getMonth() + 1).padStart(2, '0');
+    const year = now.getFullYear();
+    const dateStr = `${day}-${month}-${year}`;
+    document.getElementById('date').textContent = dateStr;
+    
+    // Update time in 24-hour format
+    const hours = String(now.getHours()).padStart(2, '0');
+    const minutes = String(now.getMinutes()).padStart(2, '0');
+    const seconds = String(now.getSeconds()).padStart(2, '0');
+    const timeStr = `${hours}:${minutes}:${seconds}`;
+    document.getElementById('clock').textContent = timeStr;
+    
+    setTimeout(updateClock, 1000);
+}
+
+// Initialize functions when DOM is loaded
+document.addEventListener('DOMContentLoaded', function() {
+    // Initialize date and time
+    updateClock();
+});
+</script>
+</body>
+</html>

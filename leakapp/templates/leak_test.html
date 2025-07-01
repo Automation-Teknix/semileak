@@ -1,0 +1,418 @@
+{% extends 'base.html' %}
+{% load static %}
+{% load custom_filters %}
+
+{% block styles %}
+<style>
+    .dropdown-container {
+        position: relative;
+        width: 200px;
+    }
+
+    .dropdown-menu {
+        position: absolute;
+        top: 100%;
+        left: 0;
+        width: 100%;
+        z-index: 2000 !important;
+        background: white;
+        border: 1px solid #ddd;
+        max-height: 200px;
+        overflow-y: auto;
+        display: none;
+    }
+
+    .button-group {
+        display: flex;
+        align-items: center;
+        gap: 10px;
+    }
+    
+    .table-container {
+        max-height: 60vh;
+        overflow-y: auto;
+        padding-bottom: 100px;
+    }
+
+    .leak-card {
+        color: #fff;
+        border-radius: 10px;
+        padding: 10px;
+        min-height: 200px;
+        font-size: 0.9rem;
+    }
+    
+    .leak-card h5 {
+        font-size: 1rem;
+        font-weight: 600;
+        margin-bottom: 8px;
+    }
+    
+    .leak-card p {
+        margin-bottom: 6px;
+        font-size: 0.85rem;
+    }
+    
+    .leak-card:hover {
+        transform: scale(1.02);
+        transition: transform 0.2s ease-in-out;
+        box-shadow: 0 4px 12px rgba(0,0,0,0.15);
+    }
+    
+    .card-body {
+        padding: 10px !important;
+    }
+
+    .status-card {
+        padding: 1rem;
+        border-radius: 0.5rem;
+    }
+    
+    .status-text {
+        font-size: 1rem;
+        font-weight: 600;
+    }
+    
+    .status-value {
+        font-size: 1.25rem;
+        font-weight: bold;
+        margin-top: 0.5rem;
+        color:white;
+    }
+    
+    .status-subtext {
+        font-size: 1.875rem;
+        margin-top: 0.25rem;
+        font-weight: bold;
+    }
+
+    /* New styles for status circles */
+    .status-circle {
+        display: inline-block;
+        width: 25px;
+        height: 25px;
+        border-radius: 50%;
+        margin-left: 5px;
+    }
+    
+    .status-ok {
+        background-color: #01ff3b;  /* Green */
+    }
+    
+    .status-nok {
+        background-color: #ff0018;  /* Red */
+    }
+    
+    .status-neutral {
+        background-color: #6c757d;  /* Gray for unknown status */
+    }
+</style>
+{% endblock %}
+
+{% block content %}
+<div class="container-fluid">
+    <div class="row mb-3 d-flex justify-content-between">
+        <div class="col-auto">
+            <h2 class="mb-3">Leak Test</h2>
+        </div>
+        <div class="col-auto">
+            <h5>IOT 1: <span id="server_1_status" style="font-weight:bold; color:gray;">Loading...</span></h5>
+            <h5>IOT 2: <span id="server_2_status" style="font-weight:bold; color:gray;">Loading...</span></h5>
+            </div>
+            <div class="col-auto">
+            <h5>IOT 3: <span id="server_3_status" style="font-weight:bold; color:gray;">Loading...</span></h5>
+        </div>
+    </div>
+
+    <!-- Part Selection Input -->
+    <div class="d-flex align-items-center justify-content-between mb-3">
+        <div class="dropdown-container">
+            <input type="text" id="searchPartNumber" class="form-control" placeholder="Search or Select Part Number" autocomplete="off">
+            <ul id="dropdownList" class="dropdown-menu"></ul>
+        </div>
+        <div class="button-group">
+            <button class="btn btn-success me-2" id="start_button">FOI Start</button>
+            <button class="btn btn-danger" id="stop_button">FOI Stop</button>
+        </div>
+    </div>
+    
+    <div class="row">
+        {% for filter_no in filter_names %}
+            {% if forloop.counter == 17 %}
+                </div> <!-- close previous row -->
+                <div class="row justify-content-center"> <!-- start new centered row for last two cards -->
+            {% endif %}
+        <div class="col-xl-3 col-md-6 mb-4">
+            <div class="status-card text-white rounded shadow" style="background-color: {{ forloop.counter0|color_palette }};">
+                <div class="card-body">
+                    <div>
+                        <div class="status-text">Station : {{ filter_no }}</div>
+                        <!-- Highest and Result side by side -->
+                        <div class="d-flex justify-content-between">
+                            <div class="status-subtext"><span id="highest_value_{{ filter_no }}">-</span></div>
+                            <div class="status-subtext text-end">
+                                <div id="status_circle_{{ filter_no }}" class="status-circle status-neutral"></div>
+                            </div>                   
+                        </div>
+                        <div class="status-value">Leakage Value:<span id="filter_value_{{ filter_no }}">-</span></div>
+                    </div>
+                </div>
+            </div>
+        </div>
+        {% endfor %}
+    </div>
+</div>
+
+<script>
+   document.addEventListener("DOMContentLoaded", function () {
+    const inputField = document.getElementById("searchPartNumber");
+    const dropdown = document.getElementById("dropdownList");
+    let selectedPartNumber = null;
+    let previousPartNumber = null;  
+
+    function fetchLeakData(partNumber) {
+        if (!partNumber) return;
+
+        fetch(`/leak-test/?part_number=${partNumber}`)
+            .then(response => response.json())
+            .then(data => {
+                if (data.error) {
+                    console.warn(data.error);
+                    return;
+                }
+                updateFilterTable(data.latest_data);
+            })
+            .catch(error => console.error("Error fetching leak data:", error));
+    }
+
+    function updateFilterTable(latestData) {
+        const currentTime = Math.floor(Date.now() / 1000); // Current time in seconds
+        const oneMinuteInSeconds = 60;
+
+        Object.keys(latestData).forEach(filterNo => {
+            const data = latestData[filterNo];
+            const filterValueElement = document.getElementById(`filter_value_${filterNo}`);
+            const highestValueElement = document.getElementById(`highest_value_${filterNo}`);
+            const statusCircleElement = document.getElementById(`status_circle_${filterNo}`);
+            
+            // Update leakage value if present
+            filterValueElement.textContent = data.leakage_value || "-";
+            
+            // Update highest value if present
+            highestValueElement.textContent = data.highest_value || "-";
+            
+            // Update status circle based on status
+            statusCircleElement.classList.remove('status-ok', 'status-nok', 'status-neutral');
+            
+            if (data.status === "OK") {
+                statusCircleElement.classList.add('status-ok');
+            } else if (data.status === "NOK") {
+                statusCircleElement.classList.add('status-nok');
+            } else {
+                statusCircleElement.classList.add('status-neutral');
+            }
+            
+            // Apply grey color if values are older than 1 minute
+            if (data.leakage_timestamp) {
+                const leakageAgeInSeconds = currentTime - data.leakage_timestamp;
+                if (leakageAgeInSeconds > oneMinuteInSeconds) {
+                    filterValueElement.style.color = "White";
+                } else {
+                    filterValueElement.style.color = "white";
+                }
+            }
+            
+            if (data.highest_timestamp) {
+                const highestAgeInSeconds = currentTime - data.highest_timestamp;
+                if (highestAgeInSeconds > oneMinuteInSeconds) {
+                    highestValueElement.style.color = "white";
+                } else {
+                    highestValueElement.style.color = "White";
+                }
+            }
+        });
+    }
+
+    // Show the dropdown when user types
+    inputField.addEventListener("input", function () {
+        let query = inputField.value.trim();
+        
+        if (query.length === 0) {
+            dropdown.style.display = "none";
+            return;
+        }
+
+        fetch(`/search-part-numbers/?query=${query}`)
+            .then(response => response.json())
+            .then(data => {
+                dropdown.innerHTML = "";
+                if (data.results.length === 0) {
+                    dropdown.style.display = "none";
+                    return;
+                }
+
+                data.results.forEach(item => {
+                    let listItem = document.createElement("li");
+                    listItem.classList.add("dropdown-item");
+                    listItem.textContent = item.part_number;
+                    listItem.setAttribute("data-value", item.part_number);
+
+                    listItem.addEventListener("click", function () {
+                        inputField.value = this.getAttribute("data-value");
+                        dropdown.style.display = "none";
+                        inputField.blur();
+                        selectedPartNumber = inputField.value;  // Store selected part number
+
+                        // Only update if part number is different from previous selection
+                        if (selectedPartNumber !== previousPartNumber) {
+                            previousPartNumber = selectedPartNumber;  // Update previous part number
+                            fetchLeakData(selectedPartNumber);  // Fetch data for the new part number
+                            updateOrCreatePartLog(selectedPartNumber);  // Update or create the log entry
+                        }
+                    });
+
+                    dropdown.appendChild(listItem);
+                });
+
+                dropdown.style.display = "block";
+                positionDropdown();  // Reposition dropdown dynamically
+            });
+    });
+
+    document.addEventListener("click", function (event) {
+        if (!inputField.contains(event.target) && !dropdown.contains(event.target)) {
+            dropdown.style.display = "none";
+        }
+    });
+
+    // Position dropdown directly below the input field
+    function positionDropdown() {
+        dropdown.style.width = `${inputField.offsetWidth}px`;
+        // The dropdown is already positioned relative to the dropdown-container
+        // due to the absolute positioning and top: 100%
+    }
+
+    // Handle FOI Start button click
+    document.getElementById("start_button").addEventListener("click", function () {
+        if (!selectedPartNumber) {
+            alert("Please select a part number before starting.");
+            return;
+        }
+        updateProdStatus(selectedPartNumber, 1);  // Start production status
+    });
+
+    // Handle FOI Stop button click
+    document.getElementById("stop_button").addEventListener("click", function () {
+        if (!selectedPartNumber) {
+            alert("Please select a part number before stopping.");
+            return;
+        }
+        updateProdStatus(selectedPartNumber, 0);  // Stop production status
+    });
+
+    // Function to update prodstatus based on button click (FOI Start or Stop)
+    function updateProdStatus(partNumber, status) {
+        fetch('/update-prodstatus/', {
+            method: "POST",
+            headers: {
+                "Content-Type": "application/json",
+                "X-CSRFToken": getCSRFToken(),
+            },
+            body: JSON.stringify({
+                part_number: partNumber,
+                prodstatus: status
+            })
+        })
+        .then(response => response.json())
+        .then(data => {
+            if (data.success) {
+                alert(`ProdStatus updated to ${status === 1 ? 'Start' : 'Stop'} for part number: ${partNumber}`);
+            } else {
+                alert("Error updating ProdStatus.");
+            }
+        })
+        .catch(error => console.error("Error:", error));
+    }
+
+    // Function to update or create a record for the part_number (on selection)
+    function updateOrCreatePartLog(partNumber) {
+        fetch('/update-part-log/', {
+            method: "POST",
+            headers: {
+                "Content-Type": "application/json",
+                "X-CSRFToken": getCSRFToken(),
+            },
+            body: JSON.stringify({
+                part_number: partNumber
+            })
+        })
+        .then(response => response.json())
+        .then(data => {
+            if (!data.success) {
+                alert("Error updating or creating the part log.");
+            }
+        })
+        .catch(error => console.error("Error:", error));
+    }
+
+    // Function to get CSRF token
+    function getCSRFToken() {
+        return document.cookie.split("; ")
+            .find(row => row.startsWith("csrftoken="))
+            ?.split("=")[1];
+    }
+
+    // Fetch data every 1 second after selecting a part number
+    setInterval(() => {
+        if (selectedPartNumber) {
+            fetchLeakData(selectedPartNumber);
+        }
+    }, 1000);  // Fetch every 1 second
+
+    // Fetch server status at regular intervals
+    let fetching = false;
+
+    async function fetchServerStatus() {
+        if (fetching) return;  // Avoid making a new request if the current one is still in progress.
+        
+        fetching = true;
+        try {
+            const response = await fetch("/get-server-status/");  // URL must match Django view's URL pattern
+            const data = await response.json();
+
+            if (data.error) {
+                console.warn("Server status fetch error:", data.error);
+                return;
+            }
+
+            updateServerUI("server_1_status", data.server_connection_1);
+            updateServerUI("server_2_status", data.server_connection_2);
+            updateServerUI("server_3_status", data.server_connection_3);
+        } catch (error) {
+            console.error("Error fetching server status:", error);
+        } finally {
+            fetching = false;  // Allow the next fetch request after this one completes
+        }
+    }
+
+    function updateServerUI(elementId, status) {
+        let element = document.getElementById(elementId);
+        if (element) {
+            if (status === 0) {
+                element.textContent = "Running";
+                element.style.color = "green";
+                element.style.fontWeight = "bold";
+            } else {
+                element.textContent = "Stopped";
+                element.style.color = "red";
+                element.style.fontWeight = "bold";
+            }
+        }
+    }
+
+    fetchServerStatus();
+
+    setInterval(fetchServerStatus, 2000);  
+});
+</script>
+{% endblock %}

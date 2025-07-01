@@ -1,0 +1,5 @@
+Django==4.2.7
+django-import-export==4.3.7
+mysql-connector==2.2.9
+mysqlclient==2.2.7
+matplotlib==3.10.1

@@ -1,0 +1,215 @@
+{% extends "base.html" %}
+
+{% block title %}Parts{% endblock %}
+
+{% block content %}
+<div class="position-relative text-center mb-3 ">
+    <h2 id="page_title">Add/Delete Part</h2>
+    <button type="button" id="toggle_button"
+        class="btn"
+        style="position: absolute; top: 0; right: 0; background-color: #062A63; color: #fff; transition: 0.3s ease; cursor: pointer; border: none; padding: 10px 20px;">
+        List Parts
+    </button>
+</div>
+
+
+
+{% comment %} 
+<div class="d-flex justify-content-between align-items-center mb-3">
+    <h2 id="page_title">Add/Delete Part</h2>
+    <button type="button" id="toggle_button" class="btn" style="background-color: #062A63; color: #fff; transition: 0.3s ease; cursor: pointer; border: none; padding: 10px 20px;">List Parts</button>
+</div> {% endcomment %}
+
+<!-- Master Data Form -->
+<div id="master_data_form_container">
+    <div class="d-flex justify-content-center align-items-center " style="height:60vh">
+        <div class="card shadow-lg" style="width: 80%; max-width: 600px;">
+            <div class="card-body">
+                <form id="master_data_form" class="row g-2 align-items-center">
+                    <div class="col-auto position-relative">
+                        <input type="text" id="part_number" name="part_number" class="form-control" placeholder="Enter Part Number">
+                        <div id="dropdown-container" class="position-absolute top-50 start-0 w-100" style="z-index: 1050; max-height: 200px; overflow-y: auto; background-color: white;"></div>
+                    </div>
+                    <div class="col-auto">
+                        <button type="button" id="add_button" class="btn btn-success" disabled>Add</button>
+                    </div>
+                    <!-- <div class="col-auto">
+                        <button type="button" id="edit_button" class="btn btn-warning" disabled>Edit</button>
+                    </div> -->
+                    <div class="col-auto">
+                        <button type="button" id="delete_button" class="btn btn-danger" disabled>Delete</button>
+                    </div>
+                </form>
+            </div>
+        </div>
+    </div>
+</div>
+
+<!-- List Master Data (Initially Hidden) -->
+<div id="list_view" style="display: none; height: 70vh; overflow-y: auto;">
+    <table class="table table-bordered mt-3">
+        <thead class="sticky-top" style="background-color: #062A63; color: #fff;">
+            <tr>
+                <th>Part Number</th>
+                <th>Greater/Less</th>
+                <th>Set Point 1</th>
+                <th>Set Point 2</th>
+                <th>Timer 1</th>
+                <th>Timer 2</th>
+            </tr>
+        </thead>
+        <tbody id="master_data_table_body">
+            {% for record in data %}
+            <tr>
+                <td>{{ record.part_number }}</td>
+                <td>{{ record.greater_less }}</td>
+                <td>{{ record.setpoint1 }}</td>
+                <td>{{ record.setpoint2 }}</td>
+                <td>{{ record.timer1 }}</td>
+                <td>{{ record.timer2 }}</td>
+            </tr>
+            {% endfor %}
+        </tbody>
+    </table>
+</div>
+    <script>
+        document.getElementById("toggle_button").addEventListener("click", function() {
+            var formContainer = document.getElementById("master_data_form_container");
+            var listView = document.getElementById("list_view");
+            var title = document.getElementById("page_title");
+            
+            if (formContainer.style.display === "none") {
+                formContainer.style.display = "block";
+                listView.style.display = "none";
+                this.textContent = "List Parts";
+                title.textContent = "Add/Delete Part";
+            } else {
+                formContainer.style.display = "none";
+                listView.style.display = "block";
+                this.textContent = "Add Part";
+                title.textContent = "List Parts";
+            }
+        });
+        </script>
+    <script src="https://code.jquery.com/jquery-3.6.0.min.js"></script>
+    <script>
+        $(document).ready(function () {
+            let selectedPartId = null;
+
+            $("#part_number").on("input", function () {
+                let query = $(this).val().trim();
+                if (query.length > 1) {
+                    $.ajax({
+                        url: "{% url 'leakapp_search' %}",
+                        data: { query: query },
+                        success: function (data) {
+                            let suggestions = "";
+                            data.results.forEach(function (item) {
+                                suggestions += `<div class="suggestion-item" style="cursor: pointer; padding: 8px;">${item.part_number}</div>`;
+                            });
+                            $("#dropdown-container").html(suggestions).show();
+
+                            // Check if part number already exists
+                            if (data.results.length > 0) {
+                                // Part exists
+                                selectedPartId = data.results[0].id; // Assuming you return the ID along with part_number
+                                $("#add_button").prop("disabled", true); // Disable Add button if part exists
+                                $("#edit_button, #delete_button").prop("disabled", false); // Enable Edit and Delete
+                            } else {
+                                // Part does not exist
+                                selectedPartId = null;
+                                $("#add_button").prop("disabled", false); // Enable Add button for new part
+                                $("#edit_button, #delete_button").prop("disabled", true); // Disable Edit and Delete
+                            }
+                        }
+                    });
+                } else {
+                    $("#dropdown-container").hide();
+                    // Disable buttons if input is too short
+                    $("#add_button").prop("disabled", true);
+                    $("#edit_button, #delete_button").prop("disabled", true);
+                }
+            });
+
+            // Handle clicking on a suggestion
+            $(document).on("click", ".suggestion-item", function () {
+                let selectedPartNumber = $(this).text();
+                $("#part_number").val(selectedPartNumber);
+                $("#add_button").prop("disabled", true); // Disable Add button after selecting a suggestion
+                $("#edit_button, #delete_button").prop("disabled", false);
+                $("#dropdown-container").hide();
+
+                // Get the ID based on the selected part number
+                $.ajax({
+                    url: "{% url 'leakapp_search' %}",
+                    data: { query: selectedPartNumber },
+                    success: function (data) {
+                        if (data.results.length > 0) {
+                            selectedPartId = data.results[0].id;  // Assuming you return the ID along with part_number
+                        }
+                    }
+                });
+            });
+            // Handle Delete Button Click
+            $("#delete_button").click(function (e) {
+                e.preventDefault();
+
+                if (!selectedPartId) {
+                    alert("Please select a valid part number to delete.");
+                    return;
+                }
+
+                if (!confirm("Are you sure you want to delete this record?")) {
+                    return;
+                }
+
+                $.ajax({
+                    type: "DELETE",
+                    url: "/leakapp/delete/" + selectedPartId + "/", // Send ID instead of part number
+                    headers: {
+                        "X-CSRFToken": "{{ csrf_token }}"
+                    },
+                    success: function (response) {
+                        alert("Record deleted successfully!");
+                        location.reload();
+                    },
+                    error: function (xhr) {
+                        alert("Error: " + xhr.responseText);
+                    }
+                });
+            });
+
+            // Handle Add Button Click
+            $("#add_button").click(function (e) {
+                e.preventDefault(); // Prevent form submission default behavior
+
+                let partNumber = $("#part_number").val().trim();
+                if (partNumber === "") {
+                    alert("Part number cannot be empty.");
+                    return;
+                }
+
+                $.ajax({
+                    type: "POST",
+                    url: "{% url 'leakapp_list' %}", // Ensure this is the correct URL for adding
+                    data: {
+                        part_number: partNumber,
+                        csrfmiddlewaretoken: "{{ csrf_token }}"
+                    },
+                    success: function (response) {
+                        alert("Record added successfully!");
+                        location.reload();
+                    },
+                    error: function (xhr) {
+                        alert("Error: " + xhr.responseText);
+                    }
+                });
+            });
+        });
+    </script>
+    <script>
+        function getCSRFToken() {
+            return document.querySelector('meta[name="csrf-token"]').getAttribute("content");
+        }
+    </script>
+{% endblock %}
