@@ -195,12 +195,14 @@
             const highestValueElement = document.getElementById(`highest_value_${filterNo}`);
             const statusCircleElement = document.getElementById(`status_circle_${filterNo}`);
             
-            // Update leakage value if present
-            filterValueElement.textContent = data.leakage_value || "-";
-            
-            // Update highest value if present
-            highestValueElement.textContent = data.highest_value || "-";
-            
+            // Format leakage value
+            const leakageVal = parseFloat(data.leakage_value);
+            filterValueElement.textContent = !isNaN(leakageVal) ? leakageVal.toFixed(2) : "-";
+
+            // Format highest value
+            const highestVal = parseFloat(data.highest_value);
+            highestValueElement.textContent = !isNaN(highestVal) ? highestVal.toFixed(2) : "-";
+
             // Update status circle based on status
             statusCircleElement.classList.remove('status-ok', 'status-nok', 'status-neutral');
             

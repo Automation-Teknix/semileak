@@ -131,7 +131,7 @@ def leak_test_page(request):
                 filter_no, highest_value, status, highest_date = row
                 if filter_no in latest_data:
                     latest_data[filter_no].update({
-                        "highest_value": highest_value or "-",
+                        "highest_value": round(float(highest_value), 2) if highest_value not in (None, '-') else "-",
                         "status": status or "-",
                         "highest_timestamp": highest_date.timestamp() if highest_date else None
                     })
@@ -146,7 +146,7 @@ def leak_test_page(request):
                 filter_no, leakage_value, leakage_date = row
                 if filter_no in latest_data:
                     latest_data[filter_no].update({
-                        "leakage_value": leakage_value or "-",
+                        "leakage_value": round(float(leakage_value), 2) if leakage_value not in (None, '-') else "-",
                         "leakage_timestamp": leakage_date.timestamp() if leakage_date else None
                     })
 

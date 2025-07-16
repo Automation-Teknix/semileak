@@ -100,7 +100,7 @@ WSGI_APPLICATION = 'auto_leak.wsgi.application'
 DATABASES = {
     'default': {
         'ENGINE': 'django.db.backends.mysql',
-        'NAME': 'semileak',
+        'NAME': 'leakapp',
         'USER': 'root',
         'PASSWORD': '',
         'HOST': 'localhost',

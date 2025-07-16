@@ -163,6 +163,11 @@
                 font-size: 1rem;
             }
         }
+
+        /* Remove modal backdrop dimming effect */
+        .modal-backdrop.show {
+            opacity: 0 !important;
+        }
     </style>
     {% block styles %}{% endblock %}
 </head>
@@ -221,7 +226,7 @@
         </a>
         
         <!-- Contact Modal -->
-        <a href="#" class="sidebar-link" data-bs-toggle="modal" data-bs-target="#contactModal">
+        <a href="#" class="sidebar-link" data-bs-toggle="modal" data-bs-target="#contactModal" data-bs-backdrop="false">
             <i class="fas fa-envelope"></i> Contact
         </a>
 
@@ -250,7 +255,7 @@
     
 
 <!-- Contact Modal -->
-<div class="modal fade" id="contactModal" tabindex="-1" aria-labelledby="contactModalLabel" aria-hidden="true">
+<div class="modal fade" id="contactModal" tabindex="-1" aria-labelledby="contactModalLabel" aria-hidden="true" data-bs-backdrop="false">
     <div class="modal-dialog modal-dialog-centered">
         <div class="modal-content">
             <!-- Modal Header -->
