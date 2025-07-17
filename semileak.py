@@ -397,17 +397,36 @@ class IoTDatabaseDriver:
 
                 elif k.startswith("DI"):
                     try:
-                        update_query = "UPDATE di_values SET di_value=%s, log_time=%s WHERE di_name=%s"
-                        update_params = (v, now, k)
-                        print(f"Updating DI value: {update_params}")
-                        update_count = self.db.execute_query(update_query, update_params)
+                        # Get previous value
+                        select_query = "SELECT di_value FROM di_values WHERE di_name=%s ORDER BY log_time DESC LIMIT 1"
+                        prev_result = self.db.execute_query(select_query, (k,))
+                        prev_value = int(float(prev_result[0]['di_value'])) if prev_result and prev_result[0]['di_value'] is not None else None
+                        new_value = int(float(v))
+                        print(f"DI {k}: prev={prev_value}, new={new_value}")
 
-                        if update_count is None or update_count == 0:
-                            logger.warning(f"DI {k} not found in database — skipping insert.")
-                            print(f" DI {k} not found — skipped insert.")
-                        else:
-                            logger.info(f" Updated DI {k}: {v}")
-                            print(f" Updated DI {k}")
+                        # Only update if previous and new are different
+                        if prev_value is not None:
+                            if prev_value != new_value:
+                                update_query = "UPDATE di_values SET di_value=%s, log_time=%s WHERE di_name=%s"
+                                update_params = (new_value, now, k)
+                                print(f"Updating DI value: {update_params}")
+                                update_count = self.db.execute_query(update_query, update_params)
+
+                                if update_count is None or update_count == 0:
+                                    logger.warning(f"DI {k} not found in database — skipping insert.")
+                                    print(f" DI {k} not found — skipped insert.")
+                                else:
+                                    logger.info(f" Updated DI {k}: {new_value}")
+                                    print(f" Updated DI {k}")
+                            else:
+                                print(f"DI {k}: Value unchanged. Skipping update.")
+                        # else:
+                        #     # No previous value, insert new record
+                        #     insert_query = "INSERT INTO di_values (di_name, di_value, log_time) VALUES (%s, %s, %s)"
+                        #     insert_params = (k, new_value, now)
+                        #     print(f"Inserting DI value: {insert_params}")
+                        #     self.db.execute_query(insert_query, insert_params)
+                        #     logger.info(f"Inserted initial DI {k}: {new_value}")
 
                     except Exception as e:
                         logger.exception(f"Error processing DI {k}: {e}")
@@ -426,12 +445,31 @@ class IoTDatabaseDriver:
         reconnect_delay = 1
         max_reconnect_delay = 1
 
+        # Map device_id to myplclog column
+        connection_column = None
+        if device_id == "device_1":
+            connection_column = "server_connection_1"
+        elif device_id == "device_2":
+            connection_column = "server_connection_2"
+        elif device_id == "device_3":
+            connection_column = "server_connection_3"
+
         device.start_server()
         while self.running:
             if not device.is_connected():
                 logger.info(f"Waiting for IoT device to connect to server for {device_id}")
                 if device.accept_connection():
                     reconnect_delay = 2  # Reset delay on successful connection
+                    # Update myplclog table for this device
+                    if connection_column:
+                        try:
+                            update_query = f"UPDATE myplclog SET {connection_column} = 1 WHERE id = (SELECT MAX(id) FROM myplclog)"
+                            print(f"[DEBUG] Executing update for connection ON: {update_query}")
+                            affected = self.db.execute_query(update_query)
+                            print(f"[DEBUG] Rows affected for connection ON: {affected}")
+                            logger.info(f"Updated {connection_column} to 1 in myplclog for {device_id}, affected rows: {affected}")
+                        except Exception as e:
+                            logger.error(f"Failed to update {connection_column} in myplclog: {e}")
                 else:
                     logger.warning(f"Failed to accept connection for {device_id}, retrying in {reconnect_delay}s")
                     time.sleep(reconnect_delay)
@@ -448,6 +486,16 @@ class IoTDatabaseDriver:
             else:
                 logger.warning(f"No data received from {device_id}, disconnecting")
                 device.disconnect()
+                # Update myplclog table for this device to set connection to 1 (not connected)
+                if connection_column:
+                    try:
+                        update_query = f"UPDATE myplclog SET {connection_column} = 1 WHERE id = (SELECT MAX(id) FROM myplclog)"
+                        print(f"[DEBUG] Executing update for connection OFF: {update_query}")
+                        affected = self.db.execute_query(update_query)
+                        print(f"[DEBUG] Rows affected for connection OFF: {affected}")
+                        logger.info(f"Updated {connection_column} to 1 in myplclog for {device_id} (not connected), affected rows: {affected}")
+                    except Exception as e:
+                        logger.error(f"Failed to update {connection_column} in myplclog: {e}")
                 time.sleep(1)  # Brief pause before reconnection attempt
 
     def start(self):

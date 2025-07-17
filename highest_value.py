@@ -11,14 +11,15 @@ DB_CONFIG = {
     'password': '',
     'database': 'leakapp',
     'pool_name': 'leakapp_pool',
-    'pool_size': 5  # Maintain 5 connections in the pool
+    'pool_size': 20
 }
 
 class DIMonitoringService:
     def __init__(self, db_config):
         """Initialize the DI monitoring service with a connection pool"""
         self.db_config = db_config
-        self.last_check_time = datetime.now() - timedelta(minutes=5)  # Start with a small look-back period
+        # Initialize to 1 minute ago to catch recent changes on startup
+        self.last_check_time = datetime.now() - timedelta(minutes=1)
         
         # Set up the connection pool
         try:
@@ -27,10 +28,7 @@ class DIMonitoringService:
         except mysql.connector.Error as err:
             print(f"Failed to create connection pool: {err}")
             raise
-        
-        # Maintain a persistent connection for health checks
-        self.persistent_connection = self.get_connection_from_pool()
-        
+
         # Track DI changes that need processing
         self.pending_di_changes = defaultdict(lambda: {
             "timestamp": None, 
@@ -39,7 +37,7 @@ class DIMonitoringService:
             "monitoring_active": False
         })
         
-        # Store last known DI states to detect transitions
+        # Cache for last known DI states to avoid redundant processing
         self.last_di_states = {}
         
         print("DI Monitoring Service initialized")
@@ -53,199 +51,210 @@ class DIMonitoringService:
             print(f"Failed to get connection from pool: {err}")
             return None
             
-    def check_connection_health(self):
-        """Check if the persistent connection is still alive, reconnect if needed"""
+    def check_connection_health(self, connection):
+        """Check if a connection is healthy"""
+        if not connection:
+            print("Failed to get connection from pool for health check.")
+            return False
         try:
-            # Simple query to check connection
-            if self.persistent_connection and self.persistent_connection.is_connected():
-                cursor = self.persistent_connection.cursor()
-                cursor.execute("SELECT 1")
-                cursor.fetchone()
-                cursor.close()
-                return True
-            else:
-                print("Persistent connection lost, reconnecting...")
-                self.persistent_connection = self.get_connection_from_pool()
-                return self.persistent_connection is not None
+            cursor = connection.cursor()
+            cursor.execute("SELECT 1")
+            cursor.fetchone()
+            cursor.close()
+            return True
         except mysql.connector.Error as err:
             print(f"Connection health check failed: {err}")
-            # Try to reconnect
-            self.persistent_connection = self.get_connection_from_pool()
-            return self.persistent_connection is not None
+            return False
 
-    def initialize_di_entries(self):
-        """Ensure all DI entries from DI1 to DI16 exist in the database - FIXED"""
-        connection = self.get_connection_from_pool()
+    def initialize_di_entries(self, connection):
+        """Ensure all DI entries from DI1 to DI18 exist in the database"""
         if not connection:
             return False
-            
         cursor = connection.cursor(dictionary=True)
-        
         try:
-            # Check which DIs already exist by getting the latest record for each
-            check_query = """
-            SELECT di_name, MAX(log_time) as latest_time
-            FROM di_values 
-            WHERE di_name BETWEEN 'DI1' AND 'DI16'
-            GROUP BY di_name
-            """
-            
-            cursor.execute(check_query)
-            existing_dis = {row['di_name']: row['latest_time'] for row in cursor.fetchall()}
-            
-            # Identify missing DIs
-            all_dis = {f'DI{i}' for i in range(1, 17)}
-            missing_dis = all_dis - set(existing_dis.keys())
-            
-            if missing_dis:
-                print(f"Found {len(missing_dis)} missing DIs in database: {', '.join(sorted(missing_dis))}")
-                
-                # Initialize missing DIs with default value 0
-                current_time = datetime.now()
-                
-                for di_name in missing_dis:
+            all_dis = [f'DI{i}' for i in range(1, 19)]
+            created = 0
+            current_time = datetime.now()
+            for di_name in all_dis:
+                check_query = """
+                SELECT 1 FROM di_values WHERE UPPER(TRIM(di_name)) = %s LIMIT 1
+                """
+                cursor.execute(check_query, (di_name.upper(),))
+                exists = cursor.fetchone()
+                if not exists:
                     insert_query = """
                     INSERT INTO di_values (di_name, di_value, log_time)
                     VALUES (%s, %s, %s)
                     """
-                    
                     cursor.execute(insert_query, (di_name, 0, current_time))
                     print(f"Created initial record for missing {di_name} with value 0")
-                    
+                    created += 1
+            if created:
                 connection.commit()
+                print(f"Inserted {created} missing DI(s)")
                 return True
             else:
-                print("All DIs (DI1-DI16) already exist in database")
+                print("All DIs (DI1-DI18) already exist in database")
                 return False
-                
         except mysql.connector.Error as err:
             connection.rollback()
             print(f"Error initializing DI entries: {err}")
             return False
         finally:
             cursor.close()
-            connection.close()
 
-    def get_current_di_states(self):
-        """Get current states of all DIs to detect transitions - NEW METHOD"""
-        connection = self.get_connection_from_pool()
+    def initialize_di_cache(self, connection):
+        """Initialize the cache with current DI states"""
         if not connection:
-            return {}
-            
-        cursor = connection.cursor(dictionary=True)
+            return
         
+        cursor = connection.cursor(dictionary=True)
         try:
-            # Get the latest value for each DI
+            # Get latest state for each DI
             query = """
-            SELECT dv1.di_name, dv1.di_value, dv1.log_time
+            SELECT dv1.di_name, dv1.di_value
             FROM di_values dv1
             INNER JOIN (
-                SELECT di_name, MAX(log_time) as max_time
+                SELECT di_name, MAX(log_time) as latest_time
                 FROM di_values
-                WHERE di_name BETWEEN 'DI1' AND 'DI16'
+                WHERE di_name BETWEEN 'DI1' AND 'DI18'
                 GROUP BY di_name
-            ) dv2 ON dv1.di_name = dv2.di_name AND dv1.log_time = dv2.max_time
+            ) dv2 ON dv1.di_name = dv2.di_name AND dv1.log_time = dv2.latest_time
             """
             
             cursor.execute(query)
-            results = cursor.fetchall()
+            latest_states = cursor.fetchall()
             
-            current_states = {}
-            for row in results:
-                current_states[row['di_name']] = {
-                    'value': row['di_value'],
-                    'timestamp': row['log_time']
-                }
+            for state in latest_states:
+                di_name = state['di_name']
+                di_value = int(float(state['di_value'])) if state['di_value'] is not None else 0
+                self.last_di_states[di_name] = di_value
             
-            return current_states
+            print(f"Initialized DI cache with {len(latest_states)} entries")
+            
         except mysql.connector.Error as err:
-            print(f"Error getting current DI states: {err}")
-            return {}
+            print(f"Error initializing DI cache: {err}")
         finally:
             cursor.close()
-            connection.close()
 
-    def detect_transitions(self):
-        """Detect 0->1 transitions by comparing current states with last known states - NEW METHOD"""
-        current_states = self.get_current_di_states()
-        transitions = []
+    def get_di_state_before_time(self, connection, di_name, before_time):
+        """Get the DI state before a specific time"""
+        if not connection:
+            return None
         
-        for di_name, current_state in current_states.items():
-            current_value = current_state['value']
-            current_time = current_state['timestamp']
-            
-            # Check if we have a previous state
-            if di_name in self.last_di_states:
-                last_value = self.last_di_states[di_name]['value']
-                last_time = self.last_di_states[di_name]['timestamp']
-                
-                # Detect 0->1 transition
-                if last_value == 0 and current_value == 1 and current_time > last_time:
-                    transitions.append({
-                        'di_name': di_name,
-                        'transition_time': current_time,
-                        'previous_value': last_value,
-                        'current_value': current_value
-                    })
-                    print(f"TRANSITION DETECTED: {di_name} changed from {last_value} to {current_value} at {current_time}")
-            
-            # Update last known state
-            self.last_di_states[di_name] = current_state
+        # Check cache first
+        if di_name in self.last_di_states:
+            return self.last_di_states[di_name]
         
-        return transitions
-
-    def get_di_changes(self):
-        """Enhanced method to detect DI changes using transition detection"""
+        cursor = connection.cursor(dictionary=True)
         try:
-            # Use transition detection method
-            transitions = self.detect_transitions()
+            query = """
+            SELECT di_value
+            FROM di_values
+            WHERE di_name = %s AND log_time < %s
+            ORDER BY log_time DESC
+            LIMIT 1
+            """
             
-            changes = []
-            for transition in transitions:
-                di_name = transition['di_name']
-                transition_time = transition['transition_time']
-                
-                # Only process if not already monitoring
-                if not self.pending_di_changes[di_name]["monitoring_active"]:
-                    changes.append({
-                        'di_name': di_name,
-                        'di_value': 1,
-                        'log_time': transition_time
-                    })
-                    
-                    # Start monitoring this DI
-                    self.pending_di_changes[di_name] = {
-                        "timestamp": transition_time,
-                        "processed_first_check": False,
-                        "processed_second_check": False,
-                        "monitoring_active": True
-                    }
+            cursor.execute(query, (di_name, before_time))
+            result = cursor.fetchone()
             
-            return changes
-        except Exception as e:
-            print(f"Error in get_di_changes: {e}")
-            return []
+            if result:
+                state = int(float(result['di_value'])) if result['di_value'] is not None else None
+                self.last_di_states[di_name] = state
+                return state
+            else:
+                # No previous state found, assume 0
+                self.last_di_states[di_name] = 0
+                return 0
+        except mysql.connector.Error as err:
+            print(f"Error getting DI state before time: {err}")
+            return 0
+        finally:
+            cursor.close()
 
-    def get_ai_values_by_time(self, filter_no, start_time, end_time):
-        """Get AI values within a specified time range - FIXED to handle proper time comparison"""
-        connection = self.get_connection_from_pool()
+    def get_di_changes_since_last_check(self, connection):
+        """Get only NEW DI changes since last check - optimized version"""
         if not connection:
             return []
-            
-        cursor = connection.cursor(dictionary=True)
         
+        cursor = connection.cursor(dictionary=True)
         try:
-            # Convert datetime objects to strings for MySQL comparison
-            if isinstance(start_time, datetime):
-                start_time_str = start_time.strftime('%Y-%m-%d %H:%M:%S')
-            else:
-                start_time_str = start_time
-                
-            if isinstance(end_time, datetime):
-                end_time_str = end_time.strftime('%Y-%m-%d %H:%M:%S')
-            else:
-                end_time_str = end_time
+            current_time = datetime.now()
+            formatted_last_check = self.last_check_time.strftime('%Y-%m-%d %H:%M:%S')
             
+            print(f"Checking for DI changes since {formatted_last_check}")
+            
+            # Get all DI changes since last check
+            query = """
+            SELECT di_name, di_value, log_time 
+            FROM di_values 
+            WHERE log_time > %s 
+            AND di_name BETWEEN 'DI1' AND 'DI18'
+            ORDER BY di_name, log_time ASC
+            """
+            
+            cursor.execute(query, (formatted_last_check,))
+            recent_changes = cursor.fetchall()
+            
+            if not recent_changes:
+                print("No DI changes found since last check")
+                self.last_check_time = current_time
+                return []
+            
+            print(f"Found {len(recent_changes)} DI changes since last check")
+            
+            # Process changes to find 0→1 transitions
+            transitions = []
+            
+            # Group changes by DI name
+            di_changes = defaultdict(list)
+            for change in recent_changes:
+                di_changes[change['di_name']].append(change)
+            
+            for di_name, changes in di_changes.items():
+                # Get the state before our time window
+                prev_state = self.get_di_state_before_time(connection, di_name, formatted_last_check)
+                current_state = prev_state
+                
+                # Check each change for 0→1 transition
+                for change in changes:
+                    new_state = int(float(change['di_value'])) if change['di_value'] is not None else None
+                    
+                    if current_state == 0 and new_state == 1:
+                        transitions.append({
+                            'di_name': di_name,
+                            'di_value': 1,
+                            'log_time': change['log_time']
+                        })
+                        print(f"NEW TRANSITION: {di_name} changed from 0 to 1 at {change['log_time']}")
+                    
+                    current_state = new_state
+                
+                # Update cached state
+                self.last_di_states[di_name] = current_state
+            
+            # Update last check time
+            self.last_check_time = current_time
+            return transitions
+            
+        except mysql.connector.Error as err:
+            print(f"Error fetching DI changes: {err}")
+            return []
+        finally:
+            cursor.close()
+
+    def get_ai_values_by_time(self, connection, filter_no, start_time, end_time):
+        """Get AI values within a specified time range"""
+        if not connection:
+            return []
+        cursor = connection.cursor(dictionary=True)
+        try:
+            # Add a buffer of ±1 second to the time window
+            buffer = timedelta(seconds=1)
+            start_time_buffered = start_time - buffer
+            end_time_buffered = end_time + buffer
+            print(f"AI value search for {filter_no}: window {start_time_buffered} to {end_time_buffered}")
             query = """
             SELECT filter_no, filter_values, date, part_number_id, shift_id
             FROM leakapp_result_tbl
@@ -254,35 +263,30 @@ class DIMonitoringService:
             AND date <= %s
             ORDER BY date
             """
-            
-            cursor.execute(query, (filter_no, start_time_str, end_time_str))
+            cursor.execute(query, (filter_no, start_time_buffered, end_time_buffered))
             values = cursor.fetchall()
-            
+            print(f"AI values found for {filter_no}: {[v['filter_values'] for v in values]}")
             count_available = len(values)
             if count_available > 0:
-                print(f"Found {count_available} values for {filter_no} between {start_time_str} and {end_time_str}")
+                print(f"Found {count_available} values for {filter_no} between {start_time_buffered} and {end_time_buffered}")
                 if values:
                     highest_value = max(values, key=lambda x: x['filter_values'])
                     print(f"Highest value in time range: {highest_value['filter_values']} at {highest_value['date']}")
             else:
-                print(f"No values found for {filter_no} in time range {start_time_str} to {end_time_str}")
-                
+                print(f"No values found for {filter_no} in time range {start_time_buffered} to {end_time_buffered}")
             return values
         except mysql.connector.Error as err:
             print(f"Error fetching AI values by time: {err}")
             return []
         finally:
             cursor.close()
-            connection.close()
 
-    def get_current_shift(self, current_time):
+    def get_current_shift(self, connection, current_time):
         """Determine the current shift based on time"""
-        connection = self.get_connection_from_pool()
         if not connection:
             return 1  # Default to first shift
             
         cursor = connection.cursor(dictionary=True)
-        
         try:
             # Format current time to match database time format (HH:MM:SS)
             current_time_str = current_time.strftime('%H:%M:%S')
@@ -322,16 +326,13 @@ class DIMonitoringService:
             return 1  # Default to first shift on error
         finally:
             cursor.close()
-            connection.close()
 
-    def get_setpoints(self, part_number_id):
+    def get_setpoints(self, connection, part_number_id):
         """Get setpoints from leakapp_masterdata for a specific part_number"""
-        connection = self.get_connection_from_pool()
         if not connection:
             return None
             
         cursor = connection.cursor(dictionary=True)
-        
         try:
             query = """
             SELECT part_number, setpoint1, setpoint2 
@@ -353,16 +354,13 @@ class DIMonitoringService:
             return None
         finally:
             cursor.close()
-            connection.close()
 
-    def update_test_tables(self, filter_no, highest_value, date, part_number_id, shift_id, status):
+    def update_test_tables(self, connection, filter_no, highest_value, date, part_number_id, shift_id, status):
         """Update both leakapp_test and leakapp_show_report tables with the highest value"""
-        connection = self.get_connection_from_pool()
         if not connection:
             return False
             
         cursor = connection.cursor()
-        
         try:
             # First check if entry exists in leakapp_test
             check_query = """
@@ -370,7 +368,6 @@ class DIMonitoringService:
             """
             cursor.execute(check_query, (filter_no,))
             exists = cursor.fetchone()[0] > 0
-            
             if exists:
                 # Update existing record
                 update_query = """
@@ -410,14 +407,13 @@ class DIMonitoringService:
                     status
                 ))
                 print(f"Inserted new record into leakapp_test for {filter_no}")
-            
-            # Always insert into leakapp_show_report
+
+            # Always insert a new record into leakapp_show_report
             insert_report_query = """
             INSERT INTO leakapp_show_report
             (filter_no, filter_values, date, highest_value, part_number_id, shift_id, status)
             VALUES (%s, %s, %s, %s, %s, %s, %s)
             """
-            
             cursor.execute(insert_report_query, (
                 filter_no, 
                 highest_value, 
@@ -427,8 +423,8 @@ class DIMonitoringService:
                 shift_id, 
                 status
             ))
-            print(f"Inserted into leakapp_show_report for {filter_no}")
-            
+            print(f"Inserted new record into leakapp_show_report for {filter_no}")
+
             connection.commit()
             return True
         except mysql.connector.Error as err:
@@ -437,56 +433,58 @@ class DIMonitoringService:
             return False
         finally:
             cursor.close()
-            connection.close()
 
-    def process_di_change(self, di_name, log_time):
-        """Process a single DI change to value 1 using time-based approach - FIXED LOGIC"""
+    def process_di_change(self, connection, di_name, log_time):
+        """Process a single DI change to value 1 using time-based approach"""
         try:
             # Map DI name to corresponding AI filter number
             ai_filter_no = f"AI{di_name[2:]}"  # e.g., DI1 -> AI1
             print(f"========== Processing {di_name} at {log_time}, corresponding to {ai_filter_no} ==========")
             
             # Get current shift
-            shift_id = self.get_current_shift(log_time)
+            shift_id = self.get_current_shift(connection, log_time)
             
             # Convert log_time to datetime if it's a string
             if isinstance(log_time, str):
                 log_time = datetime.strptime(log_time, '%Y-%m-%d %H:%M:%S')
             
-            # Calculate time differences
+            # First check: Check the highest value in the first 5 seconds after DI change
             current_time = datetime.now()
             time_diff = current_time - log_time
+            print(f"DI {di_name} transition at {log_time}, checking AI {ai_filter_no} for 5s window")
             
-            # FIXED: First check (5 seconds) - Only process if enough time has passed
+            # Check if we need to do the first check (5 seconds)
             if not self.pending_di_changes[di_name]["processed_first_check"]:
+                # Only perform first check if at least 5 seconds have passed since the DI change
                 if time_diff >= timedelta(seconds=5):
                     # Get values in the first 5 seconds after DI change
                     first_check_end = log_time + timedelta(seconds=5)
                     values_for_first_check = self.get_ai_values_by_time(
+                        connection,
                         ai_filter_no, 
                         log_time, 
                         first_check_end
                     )
-                    
+                    print(f"AI values for {ai_filter_no} after DI {di_name} transition: {values_for_first_check}")
                     if values_for_first_check:
                         # Find the highest value and corresponding part number
                         highest_value_record = max(values_for_first_check, key=lambda x: x['filter_values'])
                         highest_val = highest_value_record['filter_values']
                         part_number_id = highest_value_record['part_number_id']
-                        print(f"FIRST CHECK (5s): Highest value = {highest_val} at {highest_value_record['date']}")
+                        print(f"HIGHEST VALUE FOR FIRST CHECK (5s): {highest_val} at {highest_value_record['date']}")
                         
-                        # Get setpoints
-                        setpoint_data = self.get_setpoints(part_number_id)
+                        setpoint_data = self.get_setpoints(connection, part_number_id)
                         if not setpoint_data:
                             print(f"No setpoints found for part {part_number_id}, using defaults")
-                            setpoint_data = {'setpoint1': 70, 'setpoint2': 18}
+                            setpoint_data = {'setpoint1': 70, 'setpoint2': 18}  # Default values
                         
-                        # Check against setpoint1
+                        # Check against setpoint1 and determine status
                         status = "OK" if highest_val <= setpoint_data['setpoint1'] else "NOK"
                         print(f"Status based on SP1: {status} (value: {highest_val}, setpoint: {setpoint_data['setpoint1']})")
                         
-                        # Update tables with SP1 result
+                        # Update tables with SP1 information
                         self.update_test_tables(
+                            connection,
                             ai_filter_no,
                             highest_val,
                             highest_value_record['date'],
@@ -495,46 +493,56 @@ class DIMonitoringService:
                             status
                         )
                         
-                        # Mark first check as processed
+                        # Update monitoring state
                         self.pending_di_changes[di_name]["processed_first_check"] = True
+                        self.pending_di_changes[di_name]["timestamp"] = log_time
+                        self.pending_di_changes[di_name]["monitoring_active"] = True
                     else:
-                        print(f"No AI values found for first check (5s) for {ai_filter_no}")
+                        print(f"No AI values found for {ai_filter_no} in first 5s after DI {di_name} transition.")
                 else:
-                    print(f"Waiting for 5 seconds to pass for first check. Current wait: {time_diff.total_seconds():.1f}s")
+                    print(f"Waiting for 5 seconds to pass for first check. Current time diff: {time_diff.total_seconds()}s")
+                    
+                    # Set up monitoring if not already active
+                    if not self.pending_di_changes[di_name]["monitoring_active"]:
+                        self.pending_di_changes[di_name] = {
+                            "timestamp": log_time,
+                            "processed_first_check": False,
+                            "processed_second_check": False,
+                            "monitoring_active": True
+                        }
             
-            # FIXED: Second check (15 seconds) - Only process if enough time has passed AND first check is done
-            if (self.pending_di_changes[di_name]["processed_first_check"] and 
-                not self.pending_di_changes[di_name]["processed_second_check"]):
-                
+            # Second check: 15 seconds after DI change
+            if self.pending_di_changes[di_name]["processed_first_check"] and not self.pending_di_changes[di_name]["processed_second_check"]:
+                # Only perform second check if at least 15 seconds have passed
                 if time_diff >= timedelta(seconds=15):
                     # Get values for the full 15 seconds period
                     second_check_end = log_time + timedelta(seconds=15)
                     values_for_second_check = self.get_ai_values_by_time(
+                        connection,
                         ai_filter_no, 
                         log_time, 
                         second_check_end
                     )
-                    
                     if values_for_second_check:
-                        # Find highest value in the 15-second period
+                        # Find highest value among the 15 second period
                         highest_value_record = max(values_for_second_check, key=lambda x: x['filter_values'])
                         highest_val = highest_value_record['filter_values']
                         part_number_id = highest_value_record['part_number_id']
+                        print(f"HIGHEST VALUE FOR SECOND CHECK (15s): {highest_val} at {highest_value_record['date']}")
                         
-                        print(f"SECOND CHECK (15s): Highest value = {highest_val} at {highest_value_record['date']}")
-                        
-                        # Get setpoints
-                        setpoint_data = self.get_setpoints(part_number_id)
+                        # Get setpoints again (in case they changed)
+                        setpoint_data = self.get_setpoints(connection, part_number_id)
                         if not setpoint_data:
                             print(f"No setpoints found for part {part_number_id}, using defaults")
-                            setpoint_data = {'setpoint1': 70, 'setpoint2': 18}
+                            setpoint_data = {'setpoint1': 70, 'setpoint2': 18}  # Default values
                         
                         # Check against setpoint2
                         status = "OK" if highest_val <= setpoint_data['setpoint2'] else "NOK"
                         print(f"Status based on SP2: {status} (value: {highest_val}, setpoint: {setpoint_data['setpoint2']})")
                         
-                        # Update tables with SP2 result
+                        # Update tables with SP2 information
                         self.update_test_tables(
+                            connection,
                             ai_filter_no,
                             highest_val,
                             highest_value_record['date'],
@@ -545,134 +553,213 @@ class DIMonitoringService:
                         
                         # Mark second check as processed
                         self.pending_di_changes[di_name]["processed_second_check"] = True
-                        print(f"Completed both checks for {di_name}")
+                        print(f"Completed processing both first and second checks for {di_name}")
                     else:
-                        print(f"No AI values found for second check (15s) for {ai_filter_no}")
+                        print(f"No values found for second check (15s) yet.")
                 else:
-                    print(f"Waiting for 15 seconds to pass for second check. Current wait: {time_diff.total_seconds():.1f}s")
+                    print(f"Waiting for 15 seconds to pass for second check. Current time diff: {time_diff.total_seconds()}s")
             
             return True
         except Exception as e:
             print(f"Error in process_di_change: {e}")
             return False
 
-    def process_pending_changes(self):
+    def process_pending_changes(self, connection):
         """Process all pending DI changes that are being monitored"""
-        completed_dis = []
+        completed_changes = []
         
-        for di_name, info in self.pending_di_changes.items():
+        for di_name, info in list(self.pending_di_changes.items()):
             if info["monitoring_active"]:
-                # Continue processing until both checks are done
                 if not info["processed_first_check"] or not info["processed_second_check"]:
-                    self.process_di_change(di_name, info["timestamp"])
-                
+                    print(f"Processing pending DI change for {di_name} from {info['timestamp']}")
+                    self.process_di_change(connection, di_name, info["timestamp"])
+                    
                 # Mark as completed if both checks are done
                 if info["processed_first_check"] and info["processed_second_check"]:
-                    completed_dis.append(di_name)
+                    completed_changes.append(di_name)
         
-        # Clean up completed DIs
-        for di_name in completed_dis:
-            print(f"Completed processing for {di_name}, removing from monitoring")
+        # Clean up completed changes
+        for di_name in completed_changes:
             self.pending_di_changes[di_name]["monitoring_active"] = False
+            print(f"Completed monitoring for {di_name}")
 
-    def run_diagnostics(self):
-        """Run complete diagnostics on DI monitoring system"""
-        connection = self.get_connection_from_pool()
+    def audit_di_data(self, connection):
+        """Audit the di_values table to see which DIs are present and active"""
         if not connection:
             return
-            
         cursor = connection.cursor(dictionary=True)
-        
+        try:
+            # Check which DI numbers exist in the database
+            existence_query = """
+            SELECT DISTINCT di_name 
+            FROM di_values 
+            WHERE di_name BETWEEN 'DI1' AND 'DI18'
+            ORDER BY di_name
+            """
+            
+            cursor.execute(existence_query)
+            existing_dis = cursor.fetchall()
+            print("===== EXISTING DIs IN DATABASE =====")
+            di_names = [di['di_name'] for di in existing_dis]
+            print(f"Found DIs: {', '.join(di_names)}")
+            
+            # Check for activity in the last hour for each DI
+            activity_query = """
+            SELECT di_name, COUNT(*) as records, 
+                SUM(CASE WHEN di_value = 1 THEN 1 ELSE 0 END) as active_count
+            FROM di_values
+            WHERE log_time > DATE_SUB(NOW(), INTERVAL 1 HOUR)
+            AND di_name BETWEEN 'DI1' AND 'DI18'
+            GROUP BY di_name
+            ORDER BY di_name
+            """
+            
+            cursor.execute(activity_query)
+            activity = cursor.fetchall()
+            print("===== DI ACTIVITY (LAST HOUR) =====")
+            for di in activity:
+                print(f"{di['di_name']}: {di['records']} records, {di['active_count']} active (value=1)")
+                
+        except mysql.connector.Error as err:
+            print(f"Error in audit: {err}")
+        finally:
+            cursor.close()
+
+    def run_diagnostics(self, connection):
+        """Run complete diagnostics on DI monitoring system"""
+        if not connection:
+            return
+        cursor = connection.cursor(dictionary=True)
         try:
             print("=============== RUNNING COMPLETE DI DIAGNOSTICS ===============")
             
-            # Check existing DIs
-            cursor.execute("SELECT DISTINCT di_name FROM di_values WHERE di_name BETWEEN 'DI1' AND 'DI16' ORDER BY di_name")
+            cursor.execute("SELECT DISTINCT di_name FROM di_values WHERE di_name BETWEEN 'DI1' AND 'DI18' ORDER BY di_name")
             existing_dis = cursor.fetchall()
             
             di_names = [di['di_name'] for di in existing_dis]
             print(f"Found {len(di_names)} DIs in database: {', '.join(di_names)}")
             
             # Check for missing DIs
-            all_di_names = [f'DI{i}' for i in range(1, 17)]
+            all_di_names = [f'DI{i}' for i in range(1, 19)]
             missing_dis = [di for di in all_di_names if di not in di_names]
             
             if missing_dis:
                 print(f"Missing DIs: {', '.join(missing_dis)}")
             else:
-                print("All DIs (DI1-DI16) exist in database")
+                print("All DIs (DI1-DI18) exist in database")
             
-            # Check current states
-            current_states = self.get_current_di_states()
-            print("Current DI states:")
-            for di_name in sorted(current_states.keys()):
-                state = current_states[di_name]
-                print(f"  {di_name}: {state['value']} at {state['timestamp']}")
+            # Check last values and times for each DI
+            cursor.execute("""
+                SELECT di_name, di_value, MAX(log_time) as latest_time
+                FROM di_values
+                WHERE di_name BETWEEN 'DI1' AND 'DI18'
+                GROUP BY di_name, di_value
+                ORDER BY di_name, latest_time DESC
+            """)
             
+            latest_values = cursor.fetchall()
+            print("Latest DI values:")
+            for val in latest_values:
+                print(f"  {val['di_name']}: {val['di_value']} at {val['latest_time']}")
+            
+            # Check total record counts
+            cursor.execute("""
+                SELECT di_name, COUNT(*) as record_count
+                FROM di_values
+                WHERE di_name BETWEEN 'DI1' AND 'DI18'
+                GROUP BY di_name
+                ORDER BY di_name
+            """)
+            
+            record_counts = cursor.fetchall()
+            print("Record counts for each DI:")
+            for count in record_counts:
+                print(f"  {count['di_name']}: {count['record_count']} records")
+                
             print("=============== DIAGNOSTICS COMPLETED ===============")
             
         except mysql.connector.Error as err:
             print(f"Error in diagnostics: {err}")
         finally:
             cursor.close()
-            connection.close()
 
     def run(self):
-        """Main monitoring loop with enhanced transition detection"""
-        print("Starting DI monitoring service...")
+        """Optimized main monitoring loop"""
+        print("Starting optimized DI monitoring service...")
         
-        # Run diagnostics first
-        self.run_diagnostics()
+        # Initialize connection and setup
+        connection = self.get_connection_from_pool()
+        if not connection:
+            print("Failed to get initial connection")
+            return
         
-        # Initialize any missing DIs
-        self.initialize_di_entries()
+        try:
+            # Run diagnostics first
+            self.run_diagnostics(connection)
+            
+            # Initialize any missing DIs
+            self.initialize_di_entries(connection)
+            
+            # Initialize DI cache
+            self.initialize_di_cache(connection)
+            
+        finally:
+            connection.close()
         
-        # Initialize current states
-        self.last_di_states = self.get_current_di_states()
-        print(f"Initialized with {len(self.last_di_states)} DI states")
+        print("Starting main monitoring loop...")
         
         while True:
+            connection = self.get_connection_from_pool()
+            if not connection:
+                print("Failed to get connection, retrying...")
+                time.sleep(1)
+                continue
+            
             try:
                 # Check connection health
-                if not self.check_connection_health():
-                    print("Failed to maintain persistent connection, will try again")
-                    time.sleep(2)
+                if not self.check_connection_health(connection):
+                    print("Connection health check failed, retrying...")
+                    time.sleep(1)
                     continue
                 
-                print("Checking for DI transitions...")
+                # Only check for NEW changes since last check
+                new_transitions = self.get_di_changes_since_last_check(connection)
                 
-                # Main method: Detect transitions
-                di_changes = self.get_di_changes()
+                # Process any new transitions
+                for transition in new_transitions:
+                    print(f"Processing new transition: {transition['di_name']} at {transition['log_time']}")
+                    self.process_di_change(connection, transition['di_name'], transition['log_time'])
                 
-                if di_changes:
-                    print(f"Found {len(di_changes)} new DI transitions")
-                    for change in di_changes:
-                        print(f"Processing transition: {change['di_name']} -> {change['di_value']} at {change['log_time']}")
-                        self.process_di_change(change['di_name'], change['log_time'])
+                # Process any pending changes that need time-based checks
+                self.process_pending_changes(connection)
                 
-                # Process any pending changes
-                self.process_pending_changes()
+                print("Monitoring cycle completed. Sleeping for 1 second...")
                 
-                print("Check cycle completed. Waiting before next check...")
-                time.sleep(0.5)  # Check every 0.5 seconds
+                # Sleep for a reasonable interval (1 second instead of 0.1)
+                time.sleep(1)
                 
             except Exception as e:
                 print(f"Error in main loop: {e}")
-                time.sleep(1)  # Wait longer on error
+                time.sleep(1)
+            finally:
+                if connection:
+                    connection.close()
 
     def cleanup(self):
         """Clean up resources when shutting down"""
-        try:
-            if self.persistent_connection and self.persistent_connection.is_connected():
-                self.persistent_connection.close()
-                print("Closed persistent connection")
-        except Exception as e:
-            print(f"Error during cleanup: {e}")
+        print("Cleanup called. Closing connection pool...")
+        if hasattr(self, 'cnx_pool'):
+            try:
+                # Close all connections in the pool
+                self.cnx_pool.close()
+                print("Connection pool closed successfully")
+            except Exception as e:
+                print(f"Error closing connection pool: {e}")
 
 if __name__ == "__main__":
     # Create and run the service
+    monitoring_service = DIMonitoringService(DB_CONFIG)
     try:
-        monitoring_service = DIMonitoringService(DB_CONFIG)
         monitoring_service.run()
     except KeyboardInterrupt:
         print("Service interrupted by user")

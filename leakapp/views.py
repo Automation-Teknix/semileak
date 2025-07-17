@@ -305,6 +305,7 @@ def report_screen(request):
         sql_query += " AND status = %s"
         sql_params.append(selected_status)
 
+    sql_query += " ORDER BY date DESC"
     with connection.cursor() as cursor:
         cursor.execute(sql_query, sql_params)
         report_data = dictfetchall(cursor)
@@ -448,7 +449,7 @@ def get_server_status(request):
     try:
         # Using raw SQL for better performance
         with connection.cursor() as cursor:
-            cursor.execute("SELECT server_connection_1, server_connection_2 FROM myplclog LIMIT 1;")
+            cursor.execute("SELECT server_connection_1, server_connection_2, server_connection_3 FROM myplclog LIMIT 1;")
             row = cursor.fetchone()
             
             if not row:
@@ -457,6 +458,7 @@ def get_server_status(request):
             server_status = {
                 "server_connection_1": row[0],  # first column
                 "server_connection_2": row[1],  # second column
+                "server_connection_3": row[2],
             }
             return JsonResponse(server_status)
     

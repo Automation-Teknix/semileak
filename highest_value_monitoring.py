@@ -18,7 +18,7 @@ class DIMonitoringService:
     def __init__(self, db_config):
         """Initialize the DI monitoring service with a connection pool"""
         self.db_config = db_config
-        self.last_check_time = datetime.now() - timedelta(minutes=5)  # Start with a small look-back period
+        self.last_check_time = datetime.now() - timedelta(minutes=0.5)
         
         # Set up the connection pool
         try:
@@ -27,9 +27,7 @@ class DIMonitoringService:
         except mysql.connector.Error as err:
             print(f"Failed to create connection pool: {err}")
             raise
-        
-        # Remove persistent connection; always use fresh connections
-        
+
         # Track DI changes that need processing
         self.pending_di_changes = defaultdict(lambda: {
             "timestamp": None, 
@@ -260,6 +258,11 @@ class DIMonitoringService:
             return []
         cursor = connection.cursor(dictionary=True)
         try:
+            # Add a buffer of ±1 second to the time window
+            buffer = timedelta(seconds=1)
+            start_time_buffered = start_time - buffer
+            end_time_buffered = end_time + buffer
+            print(f"AI value search for {filter_no}: window {start_time_buffered} to {end_time_buffered}")
             query = """
             SELECT filter_no, filter_values, date, part_number_id, shift_id
             FROM leakapp_result_tbl
@@ -268,19 +271,17 @@ class DIMonitoringService:
             AND date <= %s
             ORDER BY date
             """
-            
-            cursor.execute(query, (filter_no, start_time, end_time))
+            cursor.execute(query, (filter_no, start_time_buffered, end_time_buffered))
             values = cursor.fetchall()
-            
+            print(f"AI values found for {filter_no}: {[v['filter_values'] for v in values]}")
             count_available = len(values)
             if count_available > 0:
-                print(f"Found {count_available} values for {filter_no} between {start_time} and {end_time}")
+                print(f"Found {count_available} values for {filter_no} between {start_time_buffered} and {end_time_buffered}")
                 if values:
                     highest_value = max(values, key=lambda x: x['filter_values'])
                     print(f"Highest value in time range: {highest_value['filter_values']} at {highest_value['date']}")
             else:
-                print(f"No values found for {filter_no} in time range")
-                
+                print(f"No values found for {filter_no} in time range {start_time_buffered} to {end_time_buffered}")
             return values
         except mysql.connector.Error as err:
             print(f"Error fetching AI values by time: {err}")
@@ -366,7 +367,6 @@ class DIMonitoringService:
         """Update both leakapp_test and leakapp_show_report tables with the highest value"""
         if not connection:
             return False
-            
         cursor = connection.cursor()
         try:
             # First check if entry exists in leakapp_test
@@ -415,22 +415,31 @@ class DIMonitoringService:
                 ))
                 print(f"Inserted new record into leakapp_test for {filter_no}")
 
-            # Always insert a new record into leakapp_show_report for every highest value calculation
-            insert_report_query = """
-            INSERT INTO leakapp_show_report
-            (filter_no, filter_values, date, highest_value, part_number_id, shift_id, status)
-            VALUES (%s, %s, %s, %s, %s, %s, %s)
+            # Only insert into leakapp_show_report if not already present for same filter_no, date, and highest_value
+            check_report_query = """
+            SELECT COUNT(*) FROM leakapp_show_report
+            WHERE filter_no = %s AND date = %s AND highest_value = %s
             """
-            cursor.execute(insert_report_query, (
-                filter_no, 
-                highest_value, 
-                date, 
-                highest_value, 
-                part_number_id, 
-                shift_id, 
-                status
-            ))
-            print(f"Inserted new record into leakapp_show_report for {filter_no}")
+            cursor.execute(check_report_query, (filter_no, date, highest_value))
+            report_exists = cursor.fetchone()[0] > 0
+            if not report_exists:
+                insert_report_query = """
+                INSERT INTO leakapp_show_report
+                (filter_no, filter_values, date, highest_value, part_number_id, shift_id, status)
+                VALUES (%s, %s, %s, %s, %s, %s, %s)
+                """
+                cursor.execute(insert_report_query, (
+                    filter_no, 
+                    highest_value, 
+                    date, 
+                    highest_value, 
+                    part_number_id, 
+                    shift_id, 
+                    status
+                ))
+                print(f"Inserted new record into leakapp_show_report for {filter_no}")
+            else:
+                print(f"Duplicate found: Not inserting into leakapp_show_report for {filter_no} at {date} with value {highest_value}")
 
             connection.commit()
             return True
@@ -444,164 +453,107 @@ class DIMonitoringService:
     def process_di_change(self, connection, di_name, log_time):
         """Process a single DI change to value 1 using time-based approach"""
         try:
-            # Map DI name to corresponding AI filter number
-            ai_filter_no = f"AI{di_name[2:]}"  # e.g., DI1 -> AI1
+            ai_filter_no = f"AI{di_name[2:]}"
             print(f"========== Processing {di_name} at {log_time}, corresponding to {ai_filter_no} ==========")
-            
-            # Get current shift
-            shift_id = self.get_current_shift(connection, log_time)
-            
-            # Convert log_time to datetime if it's a string
+
             if isinstance(log_time, str):
                 log_time = datetime.strptime(log_time, '%Y-%m-%d %H:%M:%S')
-            
-            # First check: Check the highest value in the first 5 seconds after DI change
-            current_time = datetime.now()
-            time_diff = current_time - log_time
-            # Check if we need to do the first check (5 seconds)
-            if not self.pending_di_changes[di_name]["processed_first_check"]:
-                # Only perform first check if at least 5 seconds have passed since the DI change
-                if time_diff >= timedelta(seconds=5):
-                    # Get values in the first 5 seconds after DI change
-                    first_check_end = log_time + timedelta(seconds=5)
-                    values_for_first_check = self.get_ai_values_by_time(
+
+            # Setup default state
+            if "first_check_end" not in self.pending_di_changes[di_name]:
+                self.pending_di_changes[di_name].update({
+                    "timestamp": log_time,
+                    "processed_first_check": False,
+                    "processed_second_check": False,
+                    "first_check_end": log_time + timedelta(seconds=5),
+                    "second_check_end": log_time + timedelta(seconds=15),
+                    "monitoring_active": True
+                })
+
+            info = self.pending_di_changes[di_name]
+            now = datetime.now()
+            time_diff = now - log_time
+            shift_id = self.get_current_shift(connection, log_time)
+
+            # First 5s Check
+            if not info["processed_first_check"] and now >= info["first_check_end"]:
+                values_for_first_check = self.get_ai_values_by_time(
+                    connection,
+                    ai_filter_no,
+                    log_time,
+                    info["first_check_end"]
+                )
+                if values_for_first_check:
+                    highest_value_record = max(values_for_first_check, key=lambda x: x['filter_values'])
+                    highest_val = highest_value_record['filter_values']
+                    part_number_id = highest_value_record['part_number_id']
+                    print(f"HIGHEST VALUE FOR FIRST CHECK (5s): {highest_val} at {highest_value_record['date']}")
+
+                    setpoint_data = self.get_setpoints(connection, part_number_id) or {'setpoint1': 70, 'setpoint2': 18}
+                    status = "OK" if highest_val <= setpoint_data['setpoint1'] else "NOK"
+
+                    self.update_test_tables(
                         connection,
-                        ai_filter_no, 
-                        log_time, 
-                        first_check_end
+                        ai_filter_no,
+                        highest_val,
+                        highest_value_record['date'],
+                        part_number_id,
+                        shift_id,
+                        status
                     )
-                    if values_for_first_check:
-                        # Find the highest value and corresponding part number
-                        highest_value_record = max(values_for_first_check, key=lambda x: x['filter_values'])
-                        highest_val = highest_value_record['filter_values']
-                        part_number_id = highest_value_record['part_number_id']
-                        print(f"HIGHEST VALUE FOR FIRST CHECK (5s): {highest_val} at {highest_value_record['date']}")
-                        setpoint_data = self.get_setpoints(connection, part_number_id)
-                        if not setpoint_data:
-                            print(f"No setpoints found for part {part_number_id}, using defaults")
-                            setpoint_data = {'setpoint1': 70, 'setpoint2': 18}  # Default values
-                        # Check against setpoint1 and determine status
-                        status = "OK" if highest_val <= setpoint_data['setpoint1'] else "NOK"
-                        print(f"Status based on SP1: {status} (value: {highest_val}, setpoint: {setpoint_data['setpoint1']})")
-                        # Update tables with SP1 information
-                        self.update_test_tables(
-                            connection,
-                            ai_filter_no,
-                            highest_val,
-                            highest_value_record['date'],
-                            part_number_id,
-                            shift_id,
-                            status
-                        )
-                        # Always insert a new record into leakapp_show_report for 5s check
-                        try:
-                            cursor = connection.cursor()
-                            insert_report_query = """
-                            INSERT INTO leakapp_show_report
-                            (filter_no, filter_values, date, highest_value, part_number_id, shift_id, status)
-                            VALUES (%s, %s, %s, %s, %s, %s, %s)
-                            """
-                            cursor.execute(insert_report_query, (
-                                ai_filter_no,
-                                highest_val,
-                                highest_value_record['date'],
-                                highest_val,
-                                part_number_id,
-                                shift_id,
-                                status
-                            ))
-                            connection.commit()
-                            cursor.close()
-                            print(f"Inserted new record into leakapp_show_report for {ai_filter_no} (5s check)")
-                        except Exception as e:
-                            print(f"Error inserting into leakapp_show_report (5s check): {e}")
-                        # Update monitoring state
-                        self.pending_di_changes[di_name]["processed_first_check"] = True
-                        self.pending_di_changes[di_name]["timestamp"] = log_time
-                        self.pending_di_changes[di_name]["monitoring_active"] = True
-                    else:
-                        print(f"No values found for first check (5s) yet.")
+                    info["processed_first_check"] = True
                 else:
-                    print(f"Waiting for 5 seconds to pass for first check. Current time diff: {time_diff.total_seconds()}s")
-                    
-                    # Set up monitoring if not already active
-                    if not self.pending_di_changes[di_name]["monitoring_active"]:
-                        self.pending_di_changes[di_name] = {
-                            "timestamp": log_time,
-                            "processed_first_check": False,
-                            "processed_second_check": False,
-                            "monitoring_active": True
-                        }
-            
-            if self.pending_di_changes[di_name]["processed_first_check"] and not self.pending_di_changes[di_name]["processed_second_check"]:
-                # Only perform second check if at least 15 seconds have passed
-                if time_diff >= timedelta(seconds=15):
-                    # Get values for the full 15 seconds period
-                    second_check_end = log_time + timedelta(seconds=15)
-                    values_for_second_check = self.get_ai_values_by_time(
+                    print(f"No AI values found for {ai_filter_no} in first 5s window")
+
+            # Second 15s Check
+            if info["processed_first_check"] and not info["processed_second_check"] and now >= info["second_check_end"]:
+                values_for_second_check = self.get_ai_values_by_time(
+                    connection,
+                    ai_filter_no,
+                    log_time,
+                    info["second_check_end"]
+                )
+                if values_for_second_check:
+                    highest_value_record = max(values_for_second_check, key=lambda x: x['filter_values'])
+                    highest_val = highest_value_record['filter_values']
+                    part_number_id = highest_value_record['part_number_id']
+                    print(f"HIGHEST VALUE FOR SECOND CHECK (15s): {highest_val} at {highest_value_record['date']}")
+
+                    setpoint_data = self.get_setpoints(connection, part_number_id) or {'setpoint1': 70, 'setpoint2': 18}
+                    status = "OK" if highest_val <= setpoint_data['setpoint2'] else "NOK"
+
+                    self.update_test_tables(
                         connection,
-                        ai_filter_no, 
-                        log_time, 
-                        second_check_end
+                        ai_filter_no,
+                        highest_val,
+                        highest_value_record['date'],
+                        part_number_id,
+                        shift_id,
+                        status
                     )
-                    if values_for_second_check:
-                        # Find highest value among the 15 second period
-                        highest_value_record = max(values_for_second_check, key=lambda x: x['filter_values'])
-                        highest_val = highest_value_record['filter_values']
-                        part_number_id = highest_value_record['part_number_id']
-                        print(f"HIGHEST VALUE FOR SECOND CHECK (15s): {highest_val} at {highest_value_record['date']}")
-                        # Get setpoints again (in case they changed)
-                        setpoint_data = self.get_setpoints(connection, part_number_id)
-                        if not setpoint_data:
-                            print(f"No setpoints found for part {part_number_id}, using defaults")
-                            setpoint_data = {'setpoint1': 70, 'setpoint2': 18}  # Default values
-                        # Check against setpoint2
-                        status = "OK" if highest_val <= setpoint_data['setpoint2'] else "NOK"
-                        print(f"Status based on SP2: {status} (value: {highest_val}, setpoint: {setpoint_data['setpoint2']})")
-                        # Update tables with SP2 information
-                        self.update_test_tables(
-                            connection,
-                            ai_filter_no,
-                            highest_val,
-                            highest_value_record['date'],
-                            part_number_id,
-                            shift_id,
-                            status
-                        )
-                        # Always insert a new record into leakapp_show_report for 15s check
-                        try:
-                            cursor = connection.cursor()
-                            insert_report_query = """
-                            INSERT INTO leakapp_show_report
-                            (filter_no, filter_values, date, highest_value, part_number_id, shift_id, status)
-                            VALUES (%s, %s, %s, %s, %s, %s, %s)
-                            """
-                            cursor.execute(insert_report_query, (
-                                ai_filter_no,
-                                highest_val,
-                                highest_value_record['date'],
-                                highest_val,
-                                part_number_id,
-                                shift_id,
-                                status
-                            ))
-                            connection.commit()
-                            cursor.close()
-                            print(f"Inserted new record into leakapp_show_report for {ai_filter_no} (15s check)")
-                        except Exception as e:
-                            print(f"Error inserting into leakapp_show_report (15s check): {e}")
-                        # Mark second check as processed
-                        self.pending_di_changes[di_name]["processed_second_check"] = True
-                        print(f"Completed processing both first and second checks for {di_name}")
-                    else:
-                        print(f"No values found for second check (15s) yet.")
+                    info["processed_second_check"] = True
                 else:
-                    print(f"Waiting for 15 seconds to pass for second check. Current time diff: {time_diff.total_seconds()}s")
-            
-            return True
+                    print(f"No AI values found for {ai_filter_no} in second 15s window")
+
+            # Cleanup monitoring if both checks done or expired
+            if info["processed_first_check"] and info["processed_second_check"]:
+                print(f"Completed all processing for {di_name}, removing from monitoring")
+                self.pending_di_changes[di_name]["monitoring_active"] = False
+
+            # Optional timeout cleanup
+            if now - log_time > timedelta(seconds=30):
+                print(f"Monitoring timeout for {di_name}, cleaning up state")
+                self.pending_di_changes[di_name] = {
+                    "timestamp": None,
+                    "processed_first_check": False,
+                    "processed_second_check": False,
+                    "monitoring_active": False
+                }
+
         except Exception as e:
             print(f"Error in process_di_change: {e}")
             return False
+
 
     def process_pending_changes(self, connection):
         """Process all pending DI changes that are being monitored"""
