@@ -77,9 +77,11 @@ def search_part_numbers(request):
 def leak_test_page(request):
     """Fetches and returns leak test data for a selected part number."""
     part_number = request.GET.get('part_number', '').strip()
-    filter_numbers = [f'AI{i}' for i in range(1, 19)]  # AI1 to AI16 (Fixed)
+    filter_numbers = [f'AI{i}' for i in range(1, 19)]
+    import time
+    now = time.time()
+    one_minute = 60
 
-    # Default empty data for all filters
     latest_data = {filter_no: {"leakage_value": "-", "highest_value": "-", "status": "-", 
                               "leakage_timestamp": None, "highest_timestamp": None} 
                   for filter_no in filter_numbers}
@@ -131,7 +133,7 @@ def leak_test_page(request):
                 filter_no, highest_value, status, highest_date = row
                 if filter_no in latest_data:
                     latest_data[filter_no].update({
-                        "highest_value": round(float(highest_value), 2) if highest_value not in (None, '-') else "-",
+                        "highest_value": round(float(highest_value), 2) if highest_value not in (None, '', '-') else "-",
                         "status": status or "-",
                         "highest_timestamp": highest_date.timestamp() if highest_date else None
                     })
@@ -146,7 +148,7 @@ def leak_test_page(request):
                 filter_no, leakage_value, leakage_date = row
                 if filter_no in latest_data:
                     latest_data[filter_no].update({
-                        "leakage_value": round(float(leakage_value), 2) if leakage_value not in (None, '-') else "-",
+                        "leakage_value": round(float(leakage_value), 2) if leakage_value not in (None, '', '-') else "-",
                         "leakage_timestamp": leakage_date.timestamp() if leakage_date else None
                     })
 
@@ -189,7 +191,7 @@ def leak_test_view(request):
             latest_entry = query.filter(filter_no=filter_no, date=record['latest_date']).first()
             
             if latest_entry and filter_no in latest_data:
-                latest_data[filter_no]["highest_value"] = latest_entry.filter_values or "-"
+                latest_data[filter_no]["highest_value"] = round(float(latest_entry.filter_values), 2) if latest_entry.filter_values not in (None, '', '-') else "-"
                 latest_data[filter_no]["status"] = latest_entry.status or "-"
                 latest_data[filter_no]["highest_timestamp"] = latest_entry.date.timestamp() if latest_entry.date else None
 
@@ -208,7 +210,7 @@ def leak_test_view(request):
                     leakage_entry = model_to_use.objects.filter(filter_no=filter_no).latest('date')
                     
                     # Update the leakage value and timestamp
-                    latest_data[filter_no]["leakage_value"] = leakage_entry.filter_values or "-"
+                    latest_data[filter_no]["leakage_value"] = round(float(leakage_entry.filter_values), 2) if leakage_entry.filter_values not in (None, '', '-') else "-"
                     latest_data[filter_no]["leakage_timestamp"] = leakage_entry.date.timestamp() if leakage_entry.date else None
                     
                     # Add to found filters set

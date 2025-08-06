@@ -214,24 +214,25 @@
                 statusCircleElement.classList.add('status-neutral');
             }
             
-            // Apply grey color if values are older than 1 minute
-            if (data.leakage_timestamp) {
-                const leakageAgeInSeconds = currentTime - data.leakage_timestamp;
-                if (leakageAgeInSeconds > oneMinuteInSeconds) {
-                    filterValueElement.style.color = "White";
-                } else {
-                    filterValueElement.style.color = "white";
-                }
+            // Handle highest value display
+            if (data.highest_timestamp && (currentTime - data.highest_timestamp) <= oneMinuteInSeconds) {
+                highestValueElement.textContent = !isNaN(highestVal) ? highestVal.toFixed(2) : "-";
+                highestValueElement.style.color = "black";
+            } else {
+                highestValueElement.textContent = "-";
+                highestValueElement.style.color = "gray";
+                statusCircleElement.classList.add('status-neutral');
             }
-            
-            if (data.highest_timestamp) {
-                const highestAgeInSeconds = currentTime - data.highest_timestamp;
-                if (highestAgeInSeconds > oneMinuteInSeconds) {
-                    highestValueElement.style.color = "white";
-                } else {
-                    highestValueElement.style.color = "White";
-                }
+
+            // Handle leakage value display
+            if (data.leakage_timestamp && (currentTime - data.leakage_timestamp) <= oneMinuteInSeconds) {
+                filterValueElement.textContent = !isNaN(leakageVal) ? leakageVal.toFixed(2) : "-";
+                filterValueElement.style.color = "black";
+            } else {
+                filterValueElement.textContent = "-";
+                filterValueElement.style.color = "gray";
             }
+
         });
     }
 
