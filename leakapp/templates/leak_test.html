@@ -6,7 +6,8 @@
 <style>
     .dropdown-container {
         position: relative;
-        width: 200px;
+        width: 100%;
+        max-width: 300px;
     }
 
     .dropdown-menu {
@@ -26,6 +27,7 @@
         display: flex;
         align-items: center;
         gap: 10px;
+        flex-wrap: wrap;
     }
     
     .table-container {
@@ -38,8 +40,9 @@
         color: #fff;
         border-radius: 10px;
         padding: 10px;
-        min-height: 200px;
-        font-size: 0.9rem;
+        min-height: 180px;
+        font-size: 0.85rem;
+        transition: transform 0.2s ease-in-out;
     }
     
     .leak-card h5 {
@@ -50,12 +53,11 @@
     
     .leak-card p {
         margin-bottom: 6px;
-        font-size: 0.85rem;
+        font-size: 0.8rem;
     }
     
     .leak-card:hover {
         transform: scale(1.02);
-        transition: transform 0.2s ease-in-out;
         box-shadow: 0 4px 12px rgba(0,0,0,0.15);
     }
     
@@ -66,96 +68,223 @@
     .status-card {
         padding: 1rem;
         border-radius: 0.5rem;
+        height: 100%;
     }
     
     .status-text {
-        font-size: 1rem;
+        font-size: 0.9rem;
         font-weight: 600;
     }
     
     .status-value {
-        font-size: 1.25rem;
+        font-size: 1rem;
         font-weight: bold;
         margin-top: 0.5rem;
-        color:white;
+        color: white;
     }
     
     .status-subtext {
-        font-size: 1.875rem;
+        font-size: 1.5rem;
         margin-top: 0.25rem;
         font-weight: bold;
     }
 
-    /* New styles for status circles */
+    /* Status circles */
     .status-circle {
         display: inline-block;
-        width: 25px;
-        height: 25px;
+        width: 20px;
+        height: 20px;
         border-radius: 50%;
         margin-left: 5px;
+        border: 2px solid rgba(255,255,255,0.3);
     }
     
     .status-ok {
-        background-color: #01ff3b;  /* Green */
+        background-color: #28a745;  /* Green */
+        box-shadow: 0 0 8px rgba(40, 167, 69, 0.6);
     }
     
     .status-nok {
-        background-color: #ff0018;  /* Red */
+        background-color: #dc3545;  /* Red */
+        box-shadow: 0 0 8px rgba(220, 53, 69, 0.6);
     }
     
     .status-neutral {
-        background-color: #6c757d;  /* Gray for unknown status */
+        background-color: #6c757d;  /* Gray */
+    }
+
+    /* Responsive adjustments */
+    @media (max-width: 1400px) {
+        .leak-card {
+            min-height: 160px;
+            font-size: 0.8rem;
+        }
+        .status-subtext {
+            font-size: 1.3rem;
+        }
+    }
+
+    @media (max-width: 1200px) {
+        .leak-card {
+            min-height: 140px;
+            font-size: 0.75rem;
+        }
+        .status-subtext {
+            font-size: 1.2rem;
+        }
+        .status-circle {
+            width: 18px;
+            height: 18px;
+        }
+    }
+
+    @media (max-width: 992px) {
+        .leak-card {
+            min-height: 120px;
+        }
+        .status-text {
+            font-size: 0.8rem;
+        }
+        .status-value {
+            font-size: 0.9rem;
+        }
+    }
+
+    @media (max-width: 768px) {
+        .button-group {
+            flex-direction: column;
+            width: 100%;
+        }
+        
+        .button-group button {
+            width: 100%;
+        }
+        
+        .leak-card {
+            min-height: 140px;
+        }
+        
+        .header-controls {
+            flex-direction: column;
+            gap: 15px;
+        }
+        
+        .iot-status {
+            flex-direction: column;
+            gap: 5px;
+        }
+    }
+
+    /* Header controls styling */
+    .header-controls {
+        display: flex;
+        justify-content: space-between;
+        align-items: flex-start;
+        gap: 20px;
+        margin-bottom: 20px;
+        flex-wrap: wrap;
+    }
+
+    .iot-status {
+        display: flex;
+        gap: 15px;
+        align-items: center;
+    }
+
+    .iot-status h5 {
+        margin: 0;
+        font-size: 0.9rem;
+    }
+
+    /* Card grid adjustments */
+    .cards-grid {
+        display: grid;
+        grid-template-columns: repeat(auto-fit, minmax(250px, 1fr));
+        gap: 15px;
+        margin-bottom: 30px;
+    }
+
+    @media (min-width: 1400px) {
+        .cards-grid {
+            grid-template-columns: repeat(6, 1fr);
+        }
+    }
+
+    @media (min-width: 1200px) and (max-width: 1399px) {
+        .cards-grid {
+            grid-template-columns: repeat(4, 1fr);
+        }
+    }
+
+    @media (min-width: 992px) and (max-width: 1199px) {
+        .cards-grid {
+            grid-template-columns: repeat(3, 1fr);
+        }
+    }
+
+    @media (min-width: 768px) and (max-width: 991px) {
+        .cards-grid {
+            grid-template-columns: repeat(2, 1fr);
+        }
+    }
+
+    @media (max-width: 767px) {
+        .cards-grid {
+            grid-template-columns: 1fr;
+        }
     }
 </style>
 {% endblock %}
 
 {% block content %}
 <div class="container-fluid">
-    <div class="row mb-3 d-flex justify-content-between">
-        <div class="col-auto">
+    <!-- Header with controls -->
+    <div class="header-controls">
+        <div>
             <h2 class="mb-3">Leak Test</h2>
+            <div class="dropdown-container">
+                <input type="text" id="searchPartNumber" class="form-control" placeholder="Search or Select Part Number" autocomplete="off">
+                <ul id="dropdownList" class="dropdown-menu"></ul>
+            </div>
         </div>
-        <div class="col-auto">
+        
+        <div class="iot-status">
             <h5>IOT 1: <span id="server_1_status" style="font-weight:bold; color:gray;">Loading...</span></h5>
             <h5>IOT 2: <span id="server_2_status" style="font-weight:bold; color:gray;">Loading...</span></h5>
-            </div>
-            <div class="col-auto">
             <h5>IOT 3: <span id="server_3_status" style="font-weight:bold; color:gray;">Loading...</span></h5>
         </div>
-    </div>
-
-    <!-- Part Selection Input -->
-    <div class="d-flex align-items-center justify-content-between mb-3">
-        <div class="dropdown-container">
-            <input type="text" id="searchPartNumber" class="form-control" placeholder="Search or Select Part Number" autocomplete="off">
-            <ul id="dropdownList" class="dropdown-menu"></ul>
-        </div>
+        
         <div class="button-group">
-            <button class="btn btn-success me-2" id="start_button">FOI Start</button>
+            <button class="btn btn-success" id="start_button">FOI Start</button>
             <button class="btn btn-danger" id="stop_button">FOI Stop</button>
         </div>
     </div>
     
-    <div class="row">
+    <!-- Cards Grid -->
+    <div class="cards-grid">
         {% for filter_no in filter_names %}
-            {% if forloop.counter == 17 %}
-                </div> <!-- close previous row -->
-                <div class="row justify-content-center"> <!-- start new centered row for last two cards -->
-            {% endif %}
-        <div class="col-xl-3 col-md-6 mb-4">
-            <div class="status-card text-white rounded shadow" style="background-color: {{ forloop.counter0|color_palette }};">
-                <div class="card-body">
-                    <div>
-                        <div class="status-text">Station : {{ filter_no }}</div>
-                        <!-- Highest and Result side by side -->
-                        <div class="d-flex justify-content-between">
-                            <div class="status-subtext"><span id="highest_value_{{ filter_no }}">-</span></div>
-                            <div class="status-subtext text-end">
-                                <div id="status_circle_{{ filter_no }}" class="status-circle status-neutral"></div>
-                            </div>                   
-                        </div>
-                        <div class="status-value">Leakage Value:<span id="filter_value_{{ filter_no }}">-</span></div>
+        <div class="status-card text-white rounded shadow leak-card" style="background-color: {{ forloop.counter0|color_palette }};">
+            <div class="card-body">
+                <div class="status-text">Station: {{ filter_no }}</div>
+                
+                <!-- Highest Value and Status Circle -->
+                <div class="d-flex justify-content-between align-items-center">
+                    <div class="status-subtext">
+                        <span id="highest_value_{{ filter_no }}">-</span>
                     </div>
+                    <div>
+                        <div id="status_circle_{{ filter_no }}" class="status-circle status-neutral"></div>
+                    </div>                   
+                </div>
+                
+                <!-- Leakage Value -->
+                <div class="status-value">
+                    Leakage: <span id="filter_value_{{ filter_no }}">-</span>
+                </div>
+                
+                <!-- Status Text -->
+                <div style="font-size: 0.75rem; margin-top: 5px;">
+                    Status: <span id="status_text_{{ filter_no }}">-</span>
                 </div>
             </div>
         </div>
@@ -164,7 +293,7 @@
 </div>
 
 <script>
-   document.addEventListener("DOMContentLoaded", function () {
+document.addEventListener("DOMContentLoaded", function () {
     const inputField = document.getElementById("searchPartNumber");
     const dropdown = document.getElementById("dropdownList");
     let selectedPartNumber = null;
@@ -186,7 +315,7 @@
     }
 
     function updateFilterTable(latestData) {
-        const currentTime = Math.floor(Date.now() / 1000); // Current time in seconds
+        const currentTime = Math.floor(Date.now() / 1000);
         const oneMinuteInSeconds = 60;
 
         Object.keys(latestData).forEach(filterNo => {
@@ -194,45 +323,51 @@
             const filterValueElement = document.getElementById(`filter_value_${filterNo}`);
             const highestValueElement = document.getElementById(`highest_value_${filterNo}`);
             const statusCircleElement = document.getElementById(`status_circle_${filterNo}`);
+            const statusTextElement = document.getElementById(`status_text_${filterNo}`);
             
-            // Format leakage value
-            const leakageVal = parseFloat(data.leakage_value);
-            filterValueElement.textContent = !isNaN(leakageVal) ? leakageVal.toFixed(2) : "-";
+            // Check if data is recent (within 1 minute)
+            const isLeakageRecent = data.leakage_timestamp && (currentTime - data.leakage_timestamp) <= oneMinuteInSeconds;
+            const isHighestRecent = data.highest_timestamp && (currentTime - data.highest_timestamp) <= oneMinuteInSeconds;
 
-            // Format highest value
-            const highestVal = parseFloat(data.highest_value);
-            highestValueElement.textContent = !isNaN(highestVal) ? highestVal.toFixed(2) : "-";
-
-            // Update status circle based on status
-            statusCircleElement.classList.remove('status-ok', 'status-nok', 'status-neutral');
-            
-            if (data.status === "OK") {
-                statusCircleElement.classList.add('status-ok');
-            } else if (data.status === "NOK") {
-                statusCircleElement.classList.add('status-nok');
-            } else {
-                statusCircleElement.classList.add('status-neutral');
-            }
-            
-            // Handle highest value display
-            if (data.highest_timestamp && (currentTime - data.highest_timestamp) <= oneMinuteInSeconds) {
-                highestValueElement.textContent = !isNaN(highestVal) ? highestVal.toFixed(2) : "-";
-                highestValueElement.style.color = "black";
-            } else {
-                highestValueElement.textContent = "-";
-                highestValueElement.style.color = "gray";
-                statusCircleElement.classList.add('status-neutral');
-            }
-
-            // Handle leakage value display
-            if (data.leakage_timestamp && (currentTime - data.leakage_timestamp) <= oneMinuteInSeconds) {
+            // Update leakage value
+            if (isLeakageRecent && data.leakage_value !== "-") {
+                const leakageVal = parseFloat(data.leakage_value);
                 filterValueElement.textContent = !isNaN(leakageVal) ? leakageVal.toFixed(2) : "-";
-                filterValueElement.style.color = "black";
+                filterValueElement.style.color = "white";
             } else {
                 filterValueElement.textContent = "-";
-                filterValueElement.style.color = "gray";
+                filterValueElement.style.color = "#ccc";
             }
 
+            // Update highest value
+            if (isHighestRecent && data.highest_value !== "-") {
+                const highestVal = parseFloat(data.highest_value);
+                highestValueElement.textContent = !isNaN(highestVal) ? highestVal.toFixed(2) : "-";
+                highestValueElement.style.color = "white";
+            } else {
+                highestValueElement.textContent = "-";
+                highestValueElement.style.color = "#ccc";
+            }
+
+            // Update status circle and text
+            statusCircleElement.classList.remove('status-ok', 'status-nok', 'status-neutral');
+            
+            if (isHighestRecent && data.status !== "-") {
+                statusTextElement.textContent = data.status;
+                statusTextElement.style.color = "white";
+                
+                if (data.status === "OK") {
+                    statusCircleElement.classList.add('status-ok');
+                } else if (data.status === "NOK") {
+                    statusCircleElement.classList.add('status-nok');
+                } else {
+                    statusCircleElement.classList.add('status-neutral');
+                }
+            } else {
+                statusTextElement.textContent = "-";
+                statusTextElement.style.color = "#ccc";
+                statusCircleElement.classList.add('status-neutral');
+            }
         });
     }
 
@@ -264,13 +399,12 @@
                         inputField.value = this.getAttribute("data-value");
                         dropdown.style.display = "none";
                         inputField.blur();
-                        selectedPartNumber = inputField.value;  // Store selected part number
+                        selectedPartNumber = inputField.value;
 
-                        // Only update if part number is different from previous selection
                         if (selectedPartNumber !== previousPartNumber) {
-                            previousPartNumber = selectedPartNumber;  // Update previous part number
-                            fetchLeakData(selectedPartNumber);  // Fetch data for the new part number
-                            updateOrCreatePartLog(selectedPartNumber);  // Update or create the log entry
+                            previousPartNumber = selectedPartNumber;
+                            fetchLeakData(selectedPartNumber);
+                            updateOrCreatePartLog(selectedPartNumber);
                         }
                     });
 
@@ -278,7 +412,7 @@
                 });
 
                 dropdown.style.display = "block";
-                positionDropdown();  // Reposition dropdown dynamically
+                positionDropdown();
             });
     });
 
@@ -288,11 +422,8 @@
         }
     });
 
-    // Position dropdown directly below the input field
     function positionDropdown() {
         dropdown.style.width = `${inputField.offsetWidth}px`;
-        // The dropdown is already positioned relative to the dropdown-container
-        // due to the absolute positioning and top: 100%
     }
 
     // Handle FOI Start button click
@@ -301,7 +432,7 @@
             alert("Please select a part number before starting.");
             return;
         }
-        updateProdStatus(selectedPartNumber, 1);  // Start production status
+        updateProdStatus(selectedPartNumber, 1);
     });
 
     // Handle FOI Stop button click
@@ -310,10 +441,9 @@
             alert("Please select a part number before stopping.");
             return;
         }
-        updateProdStatus(selectedPartNumber, 0);  // Stop production status
+        updateProdStatus(selectedPartNumber, 0);
     });
 
-    // Function to update prodstatus based on button click (FOI Start or Stop)
     function updateProdStatus(partNumber, status) {
         fetch('/update-prodstatus/', {
             method: "POST",
@@ -337,7 +467,6 @@
         .catch(error => console.error("Error:", error));
     }
 
-    // Function to update or create a record for the part_number (on selection)
     function updateOrCreatePartLog(partNumber) {
         fetch('/update-part-log/', {
             method: "POST",
@@ -358,7 +487,6 @@
         .catch(error => console.error("Error:", error));
     }
 
-    // Function to get CSRF token
     function getCSRFToken() {
         return document.cookie.split("; ")
             .find(row => row.startsWith("csrftoken="))
@@ -370,17 +498,17 @@
         if (selectedPartNumber) {
             fetchLeakData(selectedPartNumber);
         }
-    }, 1000);  // Fetch every 1 second
+    }, 1000);
 
     // Fetch server status at regular intervals
     let fetching = false;
 
     async function fetchServerStatus() {
-        if (fetching) return;  // Avoid making a new request if the current one is still in progress.
+        if (fetching) return;
         
         fetching = true;
         try {
-            const response = await fetch("/get-server-status/");  // URL must match Django view's URL pattern
+            const response = await fetch("/get-server-status/");
             const data = await response.json();
 
             if (data.error) {
@@ -394,7 +522,7 @@
         } catch (error) {
             console.error("Error fetching server status:", error);
         } finally {
-            fetching = false;  // Allow the next fetch request after this one completes
+            fetching = false;
         }
     }
 
@@ -414,8 +542,7 @@
     }
 
     fetchServerStatus();
-
-    setInterval(fetchServerStatus, 2000);  
+    setInterval(fetchServerStatus, 2000);
 });
 </script>
 {% endblock %}
