@@ -5,15 +5,6 @@ import time
 import requests
 import json
 
-logging.basicConfig(
-    level=logging.INFO,
-    format='%(asctime)s - %(levelname)s - %(message)s',
-    handlers=[
-        logging.FileHandler('database_communication.log', encoding='utf-8'),
-        logging.StreamHandler()
-    ]
-)
-
 class DatabaseCommunication:
     def __init__(self):
         """Establishes a connection to the MySQL database and checks connectivity."""
@@ -86,7 +77,7 @@ class DatabaseCommunication:
             delete_query = "DELETE FROM foi_tbl"
             self.cursor.execute(delete_query)
             self.connection.commit()
-            logging.info("🗑️ Previous records deleted from foi_tbl after prodstatus transition from 0 to 1.")
+            logging.info(" Previous records deleted from foi_tbl after prodstatus transition from 0 to 1.")
         except Error as e:
             logging.error(f"Error deleting records: {e}")
 

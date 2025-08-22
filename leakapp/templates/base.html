@@ -39,23 +39,94 @@
             padding: 0;
             font-family: 'Nunito', 'Segoe UI', Roboto, sans-serif;
             background-color: var(--body-bg);
+            overflow-x: hidden;
         }
 
-        /* Top Navbar */
+        /* Top Navbar - Mobile First Approach */
         #topbar {
             position: fixed;
             top: 0;
             left: 0;
             right: 0;
-            height: var(--topbar-height);
+            height: auto;
+            min-height: var(--topbar-height);
             background-color: var(--sidebar-dark);
             color: white;
             display: flex;
             align-items: center;
             justify-content: space-between;
-            padding: 0 1.5rem;
+            padding: 0.5rem 1rem;
             z-index: 1001;
             box-shadow: 0 0.15rem 1.75rem rgba(58, 59, 69, 0.15);
+            flex-wrap: wrap;
+        }
+
+        /* Sidebar Toggle Button for All Screens */
+        .sidebar-toggle {
+            display: block;
+            background: none;
+            border: none;
+            color: white;
+            cursor: pointer;
+            padding: 8px;
+            border-radius: 4px;
+            transition: background-color 0.3s ease;
+            z-index: 1002;
+        }
+
+        .sidebar-toggle:hover {
+            background-color: rgba(255, 255, 255, 0.1);
+        }
+
+        /* Hamburger Menu Styles */
+        .hamburger {
+            width: 25px;
+            height: 20px;
+            position: relative;
+            transform: rotate(0deg);
+            transition: 0.5s ease-in-out;
+            cursor: pointer;
+        }
+
+        .hamburger span {
+            display: block;
+            position: absolute;
+            height: 3px;
+            width: 100%;
+            background: white;
+            border-radius: 2px;
+            opacity: 1;
+            left: 0;
+            transform: rotate(0deg);
+            transition: 0.25s ease-in-out;
+        }
+
+        .hamburger span:nth-child(1) {
+            top: 0px;
+        }
+
+        .hamburger span:nth-child(2) {
+            top: 8px;
+        }
+
+        .hamburger span:nth-child(3) {
+            top: 16px;
+        }
+
+        /* Animation when sidebar toggle is active */
+        .hamburger.open span:nth-child(1) {
+            top: 8px;
+            transform: rotate(135deg);
+        }
+
+        .hamburger.open span:nth-child(2) {
+            opacity: 0;
+            left: -60px;
+        }
+
+        .hamburger.open span:nth-child(3) {
+            top: 8px;
+            transform: rotate(-135deg);
         }
 
         /* Sidebar */
@@ -69,6 +140,7 @@
             padding-top: 1rem;
             z-index: 1000;
             overflow-y: auto;
+            transition: transform 0.3s ease;
         }
 
         .sidebar-heading {
@@ -76,6 +148,7 @@
             font-size: 1.2rem;
             font-weight: bold;
             text-align: center;
+            padding: 0.5rem;
         }
 
         .sidebar-link {
@@ -107,68 +180,245 @@
             margin-left: var(--sidebar-width);
             margin-top: var(--topbar-height);
             padding: 2rem;
-        }
-        .dropdown-toggle::after {
-            color: black !important;
+            transition: margin-left 0.3s ease;
         }
         
-        /* Properly position the dashboard content */
         .dashboard-content {
             margin-left: var(--sidebar-width);
             margin-top: var(--topbar-height);
             padding: 2rem;
             width: calc(100% - var(--sidebar-width));
+            transition: all 0.3s ease;
         }
 
-        @media (max-width: 768px) {
-            #sidebar-wrapper {
-                width: 100%;
-                height: auto;
-                position: relative;
-            }
-            .main-content,
-            .dashboard-content {
-                margin-left: 0;
-                width: 100%;
-            }
+        .dropdown-toggle::after {
+            color: black !important;
         }
-        footer .copyright {
-            padding-left: 95px; /* Slight move to the right */
-        }
-        
-        /* Responsive fix for topbar right section */
-        .topbar-right-section {
-            gap: 1.5rem;
-        }
+
+        /* Responsive Styles */
         @media (max-width: 1200px) {
-            .topbar-right-section {
-                gap: 0.5rem;
+            :root {
+                --sidebar-width: 250px;
+                --topbar-height: 90px;
             }
+            
+            #topbar {
+                padding: 0.5rem;
+            }
+            
             #topbar h2 {
                 font-size: 1.1rem;
             }
+            
+            .topbar-right-section {
+                gap: 0.5rem;
+            }
         }
-        @media (max-width: 768px) {
+
+        @media (max-width: 992px) {
+            :root {
+                --sidebar-width: 0px;
+                --topbar-height: auto;
+            }
+            
+            #sidebar-wrapper {
+                transform: translateX(-100%);
+                width: 280px;
+                top: 0;
+                height: 100vh;
+            }
+            
+            #sidebar-wrapper.show {
+                transform: translateX(0);
+            }
+
+            .sidebar-header {
+                padding-top: 4rem;
+                padding-bottom: 1rem;
+                padding-left: 1rem;
+                padding-right: 1rem;
+            }
+            
+            /* Mobile content always full width */
+            .main-content,
+            .dashboard-content {
+                margin-left: 0 !important;
+                width: 100% !important;
+                margin-top: 120px;
+                padding: 1rem;
+            }
+            
             #topbar {
                 flex-direction: column;
-                height: auto;
-                padding: 0.5rem 0.5rem;
+                gap: 0.5rem;
+                padding: 1rem;
             }
+            
             .topbar-right-section {
-                flex-direction: column;
-                align-items: flex-end;
-                gap: 0.2rem;
+                width: 100%;
+                justify-content: space-between;
             }
-            #topbar h2 {
-                font-size: 1rem;
+
+            .sidebar-toggle-collapsed {
+                display: none !important;
+            }
+
+            /* Add mobile toggle button in topbar for initial access */
+            .mobile-sidebar-toggle {
+                position: fixed;
+                top: 20px;
+                left: 20px;
+                z-index: 1002;
+                background-color: #062A63;
+                border: none;
+                border-radius: 8px;
+                padding: 12px;
+                box-shadow: 0 2px 15px rgba(0, 0, 0, 0.3);
+                cursor: pointer;
+                transition: all 0.3s ease;
+            }
+
+            .mobile-sidebar-toggle:hover {
+                background-color: #0d3a7a;
+                transform: scale(1.05);
+            }
+
+            .mobile-sidebar-toggle .hamburger {
+                width: 20px;
+                height: 16px;
+            }
+
+            .mobile-sidebar-toggle .hamburger span {
+                height: 2px;
+                background: white;
+            }
+
+            .mobile-sidebar-toggle .hamburger span:nth-child(1) {
+                top: 0px;
+            }
+
+            .mobile-sidebar-toggle .hamburger span:nth-child(2) {
+                top: 6px;
+            }
+
+            .mobile-sidebar-toggle .hamburger span:nth-child(3) {
+                top: 12px;
             }
         }
+
+        @media (max-width: 768px) {
+            #topbar h2 {
+                font-size: 1rem;
+                text-align: center;
+            }
+            
+            .main-content,
+            .dashboard-content {
+                margin-top: 140px;
+                padding: 0.5rem;
+            }
+            
+            .topbar-right-section {
+                flex-direction: column;
+                align-items: center;
+                gap: 0.5rem;
+            }
+            
+            .sidebar-heading img {
+                width: 180px !important;
+                height: 40px !important;
+            }
+        }
+
+        @media (max-width: 576px) {
+            #topbar {
+                padding: 0.5rem;
+            }
+            
+            #topbar h2 {
+                font-size: 0.9rem;
+            }
+            
+            .sidebar-heading img {
+                width: 150px !important;
+                height: 35px !important;
+            }
+            
+            .main-content,
+            .dashboard-content {
+                padding: 0.25rem;
+            }
+        }
+
+        /* Overlay for mobile sidebar */
+        .sidebar-overlay {
+            position: fixed;
+            top: 0;
+            left: 0;
+            width: 100%;
+            height: 100%;
+            background-color: rgba(0, 0, 0, 0.5);
+            z-index: 999;
+            display: none;
+        }
+
+        .sidebar-overlay.show {
+            display: block;
+        }
+
+        /* Footer responsive */
+        footer .copyright {
+            padding-left: 0;
+            text-align: center;
+        }
+
+        /* Remove modal backdrop dimming effect */
+        .modal-backdrop.show {
+            opacity: 0 !important;
+        }
+
+        /* Remove the old close button styles */
+        .sidebar-close {
+            display: none;
+        }
+        /* Desktop Sidebar Collapse */
+        @media (min-width: 992px) {
+            #sidebar-wrapper.collapsed {
+                transform: translateX(-100%);
+            }
+            .dashboard-content.expanded {
+                margin-left: 0 !important;
+                width: 100% !important;
+            }
+            #sidebarToggleCollapsed {
+                display: none;
+                position: fixed;
+                top: var(--topbar-height);
+                left: 0;
+                background-color: #062A63;
+                border: none;
+                padding: 8px;
+                border-radius: 0 4px 4px 0;
+                cursor: pointer;
+                z-index: 1003;
+            }
+
+            #sidebarToggleCollapsed.show {
+                display: block;
+            }
+        }
+
     </style>
     {% block styles %}{% endblock %}
 </head>
 <body>
+<!-- Sidebar Overlay for Mobile -->
+<div class="sidebar-overlay" id="sidebarOverlay"></div>
+
 <!-- TopBar -->
 <div id="topbar" class="d-flex justify-content-between align-items-center bg-white py-2" style="border-bottom: 2px solid white;">
+
+    
     <div class="sidebar-heading text-center">
         <span>
             <img src="{% static 'images/fleetguard logo.jpeg' %}" alt="Fleetguard Logo" style="width: 220px; height: 50px;">
@@ -207,6 +457,17 @@
 
 <!-- Sidebar -->
 <div id="sidebar-wrapper">
+    <!-- Hamburger Toggle Button inside Sidebar -->
+    <div class="sidebar-header">
+        <button class="sidebar-toggle" id="sidebarToggle">
+            <div class="hamburger" id="hamburgerIcon">
+                <span></span>
+                <span></span>
+                <span></span>
+            </div>
+        </button>
+    </div>
+    
     <div class="list-group">
         <a href="{% url 'leak_test' %}" class="sidebar-link {% if request.resolver_match.url_name == 'leak_test' %}active{% endif %}">
             <i class="fas fa-vial"></i> Leak Test
@@ -221,7 +482,7 @@
         </a>
         
         <!-- Contact Modal -->
-        <a href="#" class="sidebar-link" data-bs-toggle="modal" data-bs-target="#contactModal">
+        <a href="#" class="sidebar-link" data-bs-toggle="modal" data-bs-target="#contactModal" data-bs-backdrop="false">
             <i class="fas fa-envelope"></i> Contact
         </a>
 
@@ -233,6 +494,24 @@
 
 <!-- Main Content -->
 <div id="content-wrapper">
+    <!-- Mobile Sidebar Toggle Button (shown only on mobile when sidebar is closed) -->
+    <button class="mobile-sidebar-toggle" id="mobileSidebarToggle" style="display: none;">
+        <div class="hamburger" id="mobileHamburgerIcon">
+            <span></span>
+            <span></span>
+            <span></span>
+        </div>
+    </button>
+    
+    <!-- Collapsed Sidebar Toggle Button (desktop only) -->
+    <button class="sidebar-toggle sidebar-toggle-collapsed" id="sidebarToggleCollapsed">
+        <div class="hamburger">
+            <span></span>
+            <span></span>
+            <span></span>
+        </div>
+    </button>
+    
     <div class="dashboard-content">
         {% block content %}
         {% endblock %}
@@ -240,17 +519,17 @@
 
     <footer class="sticky-footer bg-white mt-auto">
         <div class="container my-auto">
-            <div class="copyright text-center my-auto" style="margin-left: 95px;">
+            <div class="copyright text-center my-auto">
                 <span>Developed by Team AT 
                     <img class="at-logo" src="{% static 'images/at_logo.jpeg' %}" alt="AT Logo" style="height: 20px;">
                 </span>
             </div>
         </div>
     </footer>
-    
+</div>
 
 <!-- Contact Modal -->
-<div class="modal fade" id="contactModal" tabindex="-1" aria-labelledby="contactModalLabel" aria-hidden="true">
+<div class="modal fade" id="contactModal" tabindex="-1" aria-labelledby="contactModalLabel" aria-hidden="true" data-bs-backdrop="false">
     <div class="modal-dialog modal-dialog-centered">
         <div class="modal-content">
             <!-- Modal Header -->
@@ -309,10 +588,191 @@ function updateClock() {
     setTimeout(updateClock, 1000);
 }
 
+// Sidebar Toggle Function
+function initializeSidebarToggle() {
+    const sidebarToggle = document.getElementById('sidebarToggle');
+    const sidebarToggleCollapsed = document.getElementById('sidebarToggleCollapsed');
+    const mobileSidebarToggle = document.getElementById('mobileSidebarToggle');
+    const sidebar = document.getElementById('sidebar-wrapper');
+    const overlay = document.getElementById('sidebarOverlay');
+    const hamburgerIcon = document.getElementById('hamburgerIcon');
+    const mobileHamburgerIcon = document.getElementById('mobileHamburgerIcon');
+    const mainContent = document.querySelector('.dashboard-content') || document.querySelector('.main-content');
+    
+    console.log('Initializing sidebar toggle...'); // Debug log
+    
+    function updateMobileToggleVisibility() {
+        const isMobile = window.innerWidth <= 992;
+        const sidebarIsOpen = sidebar.classList.contains('show');
+        
+        if (isMobile && mobileSidebarToggle) {
+            if (sidebarIsOpen) {
+                mobileSidebarToggle.style.display = 'none';
+            } else {
+                mobileSidebarToggle.style.display = 'block';
+            }
+        } else if (mobileSidebarToggle) {
+            mobileSidebarToggle.style.display = 'none';
+        }
+    }
+    
+    function toggleSidebar() {
+        console.log('Toggle sidebar clicked'); // Debug log
+        const isMobile = window.innerWidth <= 992;
+        
+        if (isMobile) {
+            // Mobile behavior - overlay mode
+            const isOpen = sidebar.classList.contains('show');
+            console.log('Mobile mode, sidebar open:', isOpen); // Debug log
+            
+            if (isOpen) {
+                sidebar.classList.remove('show');
+                if (overlay) overlay.classList.remove('show');
+                if (hamburgerIcon) hamburgerIcon.classList.remove('open');
+                if (mobileHamburgerIcon) mobileHamburgerIcon.classList.remove('open');
+            } else {
+                sidebar.classList.add('show');
+                if (overlay) overlay.classList.add('show');
+                if (hamburgerIcon) hamburgerIcon.classList.add('open');
+                if (mobileHamburgerIcon) mobileHamburgerIcon.classList.add('open');
+            }
+            updateMobileToggleVisibility();
+        } else {
+            // Desktop behavior - collapse mode
+            const isCollapsed = sidebar.classList.contains('collapsed');
+            console.log('Desktop mode, sidebar collapsed:', isCollapsed); // Debug log
+            
+            if (isCollapsed) {
+                // Show sidebar
+                sidebar.classList.remove('collapsed');
+                if (mainContent) mainContent.classList.remove('expanded');
+                if (hamburgerIcon) hamburgerIcon.classList.remove('open');
+                if (sidebarToggleCollapsed) sidebarToggleCollapsed.classList.remove('show');
+            } else {
+                // Hide sidebar
+                sidebar.classList.add('collapsed');
+                if (mainContent) mainContent.classList.add('expanded');
+                if (hamburgerIcon) hamburgerIcon.classList.add('open');
+                if (sidebarToggleCollapsed) sidebarToggleCollapsed.classList.add('show');
+            }
+        }
+    }
+    
+    function showSidebarFromCollapsed() {
+        console.log('Show sidebar from collapsed button'); // Debug log
+        sidebar.classList.remove('collapsed');
+        if (mainContent) mainContent.classList.remove('expanded');
+        if (sidebarToggleCollapsed) sidebarToggleCollapsed.classList.remove('show');
+        if (hamburgerIcon) hamburgerIcon.classList.remove('open');
+    }
+    
+    function openMobileSidebar() {
+        console.log('Mobile sidebar toggle clicked'); // Debug log
+        sidebar.classList.add('show');
+        if (overlay) overlay.classList.add('show');
+        if (mobileHamburgerIcon) mobileHamburgerIcon.classList.add('open');
+        updateMobileToggleVisibility();
+    }
+    
+    // Event listeners
+    if (sidebarToggle) {
+        console.log('Adding click listener to sidebar toggle'); // Debug log
+        sidebarToggle.addEventListener('click', function(e) {
+            e.preventDefault();
+            e.stopPropagation();
+            toggleSidebar();
+        });
+    } else {
+        console.log('Sidebar toggle button not found!'); // Debug log
+    }
+    
+    if (sidebarToggleCollapsed) {
+        console.log('Adding click listener to collapsed toggle'); // Debug log
+        sidebarToggleCollapsed.addEventListener('click', function(e) {
+            e.preventDefault();
+            e.stopPropagation();
+            showSidebarFromCollapsed();
+        });
+    }
+    
+    if (mobileSidebarToggle) {
+        console.log('Adding click listener to mobile toggle'); // Debug log
+        mobileSidebarToggle.addEventListener('click', function(e) {
+            e.preventDefault();
+            e.stopPropagation();
+            openMobileSidebar();
+        });
+    }
+    
+    if (overlay) {
+        overlay.addEventListener('click', function() {
+            if (window.innerWidth <= 992) {
+                sidebar.classList.remove('show');
+                overlay.classList.remove('show');
+                if (hamburgerIcon) hamburgerIcon.classList.remove('open');
+                if (mobileHamburgerIcon) mobileHamburgerIcon.classList.remove('open');
+                updateMobileToggleVisibility();
+            }
+        });
+    }
+    
+    // Close sidebar when clicking on sidebar links on mobile only
+    const sidebarLinks = document.querySelectorAll('.sidebar-link');
+    sidebarLinks.forEach(link => {
+        link.addEventListener('click', function() {
+            if (window.innerWidth <= 992) {
+                sidebar.classList.remove('show');
+                if (overlay) overlay.classList.remove('show');
+                if (hamburgerIcon) hamburgerIcon.classList.remove('open');
+                if (mobileHamburgerIcon) mobileHamburgerIcon.classList.remove('open');
+                updateMobileToggleVisibility();
+            }
+        });
+    });
+    
+    // Initial mobile toggle visibility
+    updateMobileToggleVisibility();
+}
+
 // Initialize functions when DOM is loaded
 document.addEventListener('DOMContentLoaded', function() {
     // Initialize date and time
     updateClock();
+    
+    // Initialize sidebar toggle
+    initializeSidebarToggle();
+    
+    // Handle window resize
+    window.addEventListener('resize', function() {
+        const sidebar = document.getElementById('sidebar-wrapper');
+        const overlay = document.getElementById('sidebarOverlay');
+        const hamburgerIcon = document.getElementById('hamburgerIcon');
+        const sidebarToggleCollapsed = document.getElementById('sidebarToggleCollapsed');
+        const mainContent = document.querySelector('.dashboard-content') || document.querySelector('.main-content');
+        
+        if (window.innerWidth > 992) {
+            // Desktop: Reset mobile classes
+            sidebar.classList.remove('show');
+            overlay.classList.remove('show');
+            
+            // Check if sidebar was collapsed and maintain state
+            if (!sidebar.classList.contains('collapsed')) {
+                hamburgerIcon.classList.remove('open');
+                sidebarToggleCollapsed.classList.remove('show');
+                if (mainContent) mainContent.classList.remove('expanded');
+            }
+        } else {
+            // Mobile: Reset desktop classes
+            sidebar.classList.remove('collapsed');
+            sidebarToggleCollapsed.classList.remove('show');
+            if (mainContent) mainContent.classList.remove('expanded');
+            
+            // Reset hamburger if sidebar is not shown
+            if (!sidebar.classList.contains('show')) {
+                hamburgerIcon.classList.remove('open');
+            }
+        }
+    });
 });
 </script>
 </body>

@@ -121,6 +121,7 @@ class myplclog(models.Model):
     part_number = models.ForeignKey(LeakAppMasterData, on_delete=models.CASCADE)
     server_connection_1 = models.IntegerField(null=True, blank=True)
     server_connection_2 = models.IntegerField(null=True, blank=True)
+    server_connection_3 = models.IntegerField(null=True, blank=True)
 
     class Meta:
         db_table = "myplclog"
